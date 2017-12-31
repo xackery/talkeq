@@ -1,0 +1,2 @@
+# talkeq
+Talk to Everquest
