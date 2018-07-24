@@ -32,14 +32,14 @@ func TestMain(t *testing.T) {
 	switchboard := &service.Switchboard{
 		Patches: []*service.Patch{
 			{
-				From:    te,
-				To:      d,
-				ChanNum: 260,
+				From:   te,
+				To:     d,
+				Number: "260",
 			},
 			{
-				From:    d,
-				To:      te,
-				ChanNum: 260,
+				From:   d,
+				To:     te,
+				Number: "260",
 			},
 		},
 	}

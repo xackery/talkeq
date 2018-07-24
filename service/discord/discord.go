@@ -82,8 +82,8 @@ func (d *Discord) Close() (err error) {
 	return
 }
 
-// WriteMessage handles message requests
-func (d *Discord) WriteMessage(message *model.Message) (err error) {
+// SendChannelMessage handles message requests
+func (d *Discord) SendChannelMessage(message *model.ChannelMessage) (err error) {
 	if d.Session == nil {
 		err = d.Initialize()
 		if err != nil {
@@ -102,6 +102,12 @@ func (d *Discord) WriteMessage(message *model.Message) (err error) {
 		err = errors.Wrapf(err, "failed to send message: %s", sendError.Error())
 		return
 	}
+	return
+}
+
+// SendCommandMessage handles message requests
+func (d *Discord) SendCommandMessage(message *model.CommandMessage) (err error) {
+	err = errors.New("discord does not support writing commands")
 	return
 }
 
@@ -157,15 +163,17 @@ func (d *Discord) onMessageEvent(s *discordgo.Session, m *discordgo.MessageCreat
 		//Parse as command
 	} else {
 		//Relay as message
-		message := &model.Message{
-			ChanNum: 260, //map
+		message := &model.ChannelMessage{
+			Creator: d.Name(),
+			Number:  260, //map
 			Message: msg,
 			From:    ign,
 		}
-		d.Log.Printf("message: [%d] %s: %s", message.ChanNum, message.From, message.Message)
-		services := d.Switchboard.FindPatch(message.ChanNum, d)
+		d.Log.Printf("message: [%d] %s: %s", message.Number, message.From, message.Message)
+
+		services := d.Switchboard.FindPatch(message.Number, d)
 		for _, service := range services {
-			err = service.WriteMessage(message)
+			err = service.SendChannelMessage(message)
 			if err != nil {
 				d.Log.Printf("-> %s failed: %s\n", service.Name(), err.Error())
 				continue

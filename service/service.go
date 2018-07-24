@@ -8,6 +8,7 @@ import (
 type Service interface {
 	Name() string
 	Initialize() (err error)
-	WriteMessage(message *model.Message) (err error)
+	SendChannelMessage(message *model.ChannelMessage) (err error)
+	SendCommandMessage(message *model.CommandMessage) (err error)
 	Close() (err error)
 }

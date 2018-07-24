@@ -24,14 +24,14 @@ func main() {
 	switchboard := &service.Switchboard{
 		Patches: []*service.Patch{
 			{
-				From:    t,
-				To:      d,
-				ChanNum: 260,
+				From:   t,
+				To:     d,
+				Number: "260",
 			},
 			{
-				From:    d,
-				To:      t,
-				ChanNum: 260,
+				From:   d,
+				To:     t,
+				Number: "260",
 			},
 		},
 	}

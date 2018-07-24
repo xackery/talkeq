@@ -95,13 +95,13 @@ func (t *Telnet) Close() (err error) {
 	return
 }
 
-// WriteMessage handles message requests
-func (t *Telnet) WriteMessage(message *model.Message) (err error) {
-	if message.ChanNum == 0 {
-		message.ChanNum = 260
+// SendChannelMessage handles message requests
+func (t *Telnet) SendChannelMessage(message *model.ChannelMessage) (err error) {
+	if message.Number == 0 {
+		message.Number = 260
 	}
 
-	err = t.sendln(fmt.Sprintf("emote world %d %s says from discord, '%s'", message.ChanNum, message.From, message.Message))
+	err = t.sendln(fmt.Sprintf("emote world %d %s says from discord, '%s'", message.Number, message.From, message.Message))
 	if err != nil {
 		t.Log.Printf("failed to send telnet message (%s:%s): %s\n", message.From, message.Message, err.Error())
 		return
@@ -109,13 +109,21 @@ func (t *Telnet) WriteMessage(message *model.Message) (err error) {
 	return
 }
 
+// SendCommandMessage handles message requests
+func (t *Telnet) SendCommandMessage(message *model.CommandMessage) (err error) {
+	err = errors.New("telnet does not support writing messages")
+	return
+}
+
 func (t *Telnet) pollMessages() {
 	data := []byte{}
-	message := &model.Message{}
+	message := &model.ChannelMessage{
+		Creator: t.Name(),
+	}
 	var err error
 	for {
 		message.Message = ""
-		message.ChanNum = 260
+		message.Number = 260
 		message.From = ""
 		if t.Session == nil {
 			return
@@ -157,10 +165,10 @@ func (t *Telnet) pollMessages() {
 		message.Message = t.convertLinks(message.Message)
 
 		//Todo: Send message to writemessage
-		t.Log.Printf("message: [%d] %s: %s", message.ChanNum, message.From, message.Message)
-		services := t.Switchboard.FindPatch(message.ChanNum, t)
+		t.Log.Printf("message: [%d] %s: %s", message.Number, message.From, message.Message)
+		services := t.Switchboard.FindPatch(message.Number, t)
 		for _, service := range services {
-			err = service.WriteMessage(message)
+			err = service.SendChannelMessage(message)
 			if err != nil {
 				t.Log.Printf("-> %s failed: %s\n", service.Name(), err.Error())
 				continue

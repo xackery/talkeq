@@ -17,7 +17,7 @@ func (e ErrAuth) Error() string {
 
 // ErrMessage is a failure to send a message
 type ErrMessage struct {
-	Message *Message
+	Message *ChannelMessage
 }
 
 // Error satisfies the error type interface

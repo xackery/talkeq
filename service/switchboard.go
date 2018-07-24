@@ -1,5 +1,9 @@
 package service
 
+import (
+	"github.com/xackery/talkeq/model"
+)
+
 // Switchboard contains a list of patches
 type Switchboard struct {
 	Patches []*Patch
@@ -7,16 +11,16 @@ type Switchboard struct {
 
 // Patch represents the link between two services
 type Patch struct {
-	ChanNum int32
-	From    Service
-	To      Service
+	Number string
+	From   Service
+	To     Service
 }
 
 // FindPatch iterates the patches and creates a list of valid ones
-func (s *Switchboard) FindPatch(chanNum int32, from Service) (services []Service) {
+func (s *Switchboard) FindPatch(Number model.MessageType, from Service) (services []Service) {
 
 	for _, patch := range s.Patches {
-		if patch.ChanNum != chanNum {
+		if patch.Number != Number.String() {
 			continue
 		}
 		if from != patch.From {

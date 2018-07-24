@@ -53,20 +53,28 @@ func (e *EQLog) Close() (err error) {
 	return
 }
 
-// WriteMessage handles message requests
-func (e *EQLog) WriteMessage(message *model.Message) (err error) {
+// SendChannelMessage handles message requests
+func (e *EQLog) SendChannelMessage(message *model.ChannelMessage) (err error) {
+	err = errors.New("eqlog does not support writing messages")
+	return
+}
+
+// SendCommandMessage handles message requests
+func (e *EQLog) SendCommandMessage(message *model.CommandMessage) (err error) {
 	err = errors.New("eqlog does not support writing messages")
 	return
 }
 
 func (e *EQLog) pollMessages() {
-	message := &model.Message{}
+	message := &model.ChannelMessage{
+		Creator: e.Name(),
+	}
 	var err error
 
 	t, err := tail.TailFile(e.File, tail.Config{Follow: true})
 	for line := range t.Lines {
 		message.Message = ""
-		message.ChanNum = 260
+		message.Number = 260
 		message.From = ""
 		message.Message = line.Text
 		if !e.isPolling {
@@ -94,10 +102,10 @@ func (e *EQLog) pollMessages() {
 		message.Message = e.convertLinks(message.Message) //This may work in log poller
 
 		//Todo: Send message to writemessage
-		e.Log.Printf("message: [%d] %s: %s", message.ChanNum, message.From, message.Message)
-		services := e.Switchboard.FindPatch(message.ChanNum, e)
+		e.Log.Printf("message: [%d] %s: %s", message.Number, message.From, message.Message)
+		services := e.Switchboard.FindPatch(message.Number, e)
 		for _, service := range services {
-			err = service.WriteMessage(message)
+			err = service.SendChannelMessage(message)
 			if err != nil {
 				e.Log.Printf("-> %s failed: %s\n", service.Name(), err.Error())
 				continue

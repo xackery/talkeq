@@ -1,8 +1,8 @@
 syntax = "proto3";
 package model;
 
-message Message {
-	int32 chan_num = 1;
+message ChannelMessage {
+	MessageType number = 1;
 	int32 language = 2;
 	string from = 3;
 	string to = 4;
@@ -13,9 +13,150 @@ message Message {
 	int32 minstatus = 9;
 	int32 fromadmin = 10;
 	bool noreply = 11;
-	bool is_emote = 12;
-	//0 not queued, 1 queued, 2 queue full, 3 offline
-	int32 queued = 13;
-	//You can specify a zone id if you want a message exclusively to one zone
-	int32 zone_id = 14;
-}
+	bool is_emote = 12;  //Is message considered an emote?
+	int32 queued = 13; //only used on channel_message.out events. (*.in uses response_message): 0 not queued, 1 queued, 2 queue full, 3 offline
+	int32 from_entity_id = 16; //(Only in zone requests) Entity to send message from
+	EntityType from_entity_type = 17; //(Only in zone requests) Entity type the message is from
+	float distance = 18; //(optional, only in zone requests) how far should the message travel? (e.g. say)
+	bool skip_sender = 19; //(optional, only in zone requests) should we skip sender?
+	string response_message = 20; //Human-readable response message of request.
+	int32 response_value = 21; //Response value. In cases where a single value is returned, this is utilized (like an entity id)
+	ErrorType response_error = 22; //error (if any), ERR_OK (0) is default
+	string response_type = 23; //defines what message type the response_payload is
+	bytes response_payload = 24; //binary payload to be parsed using response_type
+	string creator = 25; //creator represents who sent this channel message
+  }
+  
+  message CommandMessage {
+	string author = 1; //Author of command. This can typically be ignored
+	string command = 2; //command to request
+	repeated string params = 3; //Parameters are an array of strings.   
+	string response_message = 4; //Human-readable response message of request.
+	int32 response_value = 5; //Response value. In cases where a single value is returned, this is utilized (like an entity id)
+	ErrorType response_error = 6; //error (if any), ERR_OK (0) is default
+	string response_type = 7; //defines what message type the response_payload is
+	bytes response_payload = 8; //binary payload to be parsed using response_type
+  }
+
+  enum ErrorType {
+	ERR_OK = 0; //OK, No error provided
+	ERR_Request = 1; //Request data has something wrong. See response_message for more details.
+	ERR_Internal = 2; //Internal server error. See response message for mode details  
+	ERR_Failed = 3; //Failed request. This is when the request succeeds, there are no internal server errors, but the response is a failure.
+  }
+  
+  enum MessageType {
+	//option allow_alias = true;
+	Auction = 0;
+	Group = 2;	// FF|F0F0F0
+	Shout = 3;
+	Auction4 = 4;
+	OOC = 5;
+	Broadcast = 6;
+	Tell = 7;
+	Say = 8;
+	Tell14 = 14;
+	Raid = 15;
+	Guild = 17;
+	GMSayWeird18 = 18;
+	LocalEmote20 = 20;
+	Fellowship = 21;
+	Emote = 22;      
+	  Say256 = 256;
+	Tell257 = 257;
+	Group258 = 258;
+	Shout259 = 259;
+	Auction260 = 260;
+	OOC261 = 261;
+	Broadcast262 = 262;
+	Tell263 = 263;
+	Say264 = 264;
+	YouHitOther = 265;
+	OtherHitsYou = 266;
+	YouMissOther = 267;
+	OtherMissesYou = 268;
+	Skills = 270;
+	Disciplines = 271;
+	Guild273 = 273;
+	GMSay = 274;
+	MerchantOffer = 275;
+	MerchantBuySell = 276;
+	Fellowship277 = 277;
+	Emote278 = 278;
+	OtherHits = 279;
+	OtherMisses = 280;
+	Who = 281;
+	YellForHelp = 282;
+	NonMelee = 283;
+	WornOff = 284;
+	MoneySplit = 285;
+	LootMessages = 286;
+	DiceRoll = 287;
+	OtherSpells = 288;
+	SpellFailure = 289;
+	Chat = 290;
+	Channel1 = 291;
+	Channel2 = 292;
+	Channel3 = 293;
+	Channel4 = 294;
+	Channel5 = 295;
+	Channel6 = 296;
+	Channel7 = 297;
+	Channel8 = 298;
+	Channel9 = 299;
+	Channel10 = 300;
+	CritMelee = 301;
+	SpellCrits = 302;
+	TooFarAway = 303;
+	NPCRampage = 304;
+	NPCFlurry = 305;
+	NPCEnrage = 306;
+	SayEcho = 307;
+	TellEcho = 308;
+	GroupEcho = 309;
+	GuildEcho = 310;
+	OOCEcho = 311;
+	Auction2 = 312;
+	ShoutECho = 313;
+	EmoteEcho = 314;
+	Chat1Echo = 315;
+	Chat2Echo = 316;
+	Chat3Echo = 317;
+	Chat4Echo = 318;
+	Chat5Echo = 319;
+	Chat6Echo = 320;
+	Chat7Echo = 321;
+	Chat8Echo = 322;
+	Chat9Echo = 323;
+	Chat10Echo = 324;
+	DoTDamage = 325;
+	ItemLink = 326;
+	RaidSay = 327;
+	MyPet = 328;
+	DS = 329;
+	Leadership = 330;
+	PetFlurry = 331;
+	PetCrit = 332;
+	FocusEffect = 333;
+	Experience = 334;
+	System = 335;
+	PetSpell = 336;
+	PetResponse = 337;
+	ItemSpeech = 338;
+	StrikeThrough = 339;
+	Stun = 340;
+  }
+
+  //EntityType will attempt to identify an entity to it's upper-most type by default
+enum EntityType {
+	NPC = 0; //Inherits mob
+	Client = 1; //Inherits mob
+	Mob = 2; //Inherits entity
+	Mercenary = 3; //Inherits NPC
+	Corpse = 4; //Inherits mob
+	Door = 5; //Inherits entity
+	Object = 6; //Inherits entity
+	Trap = 7; //Inherits entity
+	Beacon = 9; //Inherits mob
+	Encounter = 10; //Inherits mob
+  }
