@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/xackery/discordeq/model"
+	"github.com/xackery/talkeq/model"
 )
 
 func TestDiscord(t *testing.T) {
