@@ -5,5 +5,8 @@
 Talk to (and from) Everquest
 TalkEQ bridges links between everquest and other services.
 
+Supported Services:
 * Discord
 * Telnet (eqemu server)
+* NATS (eqemu nats branch)
+* eqlog (logging via everquest's log system)
