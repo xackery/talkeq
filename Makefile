@@ -37,7 +37,7 @@ docker: ## Build Docker container
 
 
 proto: ## Make protobuf files
-	protoc --go_out=. model/*.proto
+	protoc --go_out=. pb/*.proto
 check: test-race test386 fmt vet ## Run tests and linters
 
 test386: ## Run tests in 32-bit mode

@@ -1,52 +1,43 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"os"
+	"os/signal"
 
-	"github.com/xackery/talkeq/service"
-	"github.com/xackery/talkeq/service/discord"
-	"github.com/xackery/talkeq/service/telnet"
+	"github.com/xackery/talkeq/client"
 )
 
 func main() {
-	var err error
-	fmt.Println("Starting")
 
-	t := &telnet.Telnet{
-		Log: log.New(os.Stdout, "[Telnet]", 0),
-	}
-	d := &discord.Discord{
-		Log: log.New(os.Stdout, "[Discord]", 0),
-	}
-
-	switchboard := &service.Switchboard{
-		Patches: []*service.Patch{
-			{
-				From:   t,
-				To:     d,
-				Number: "260",
-			},
-			{
-				From:   d,
-				To:     t,
-				Number: "260",
-			},
-		},
-	}
-
-	d.Switchboard = switchboard
-	err = d.Initialize()
+	err := start()
 	if err != nil {
-		fmt.Println("Failed to initialize discord", err.Error())
+		fmt.Println("exited with error:", err.Error())
+		os.Exit(1)
+	}
+	fmt.Println("exited safely")
+	os.Exit(0)
+}
+
+func start() (err error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt)
+	c, err := client.New(ctx)
+	if err != nil {
 		return
 	}
-	t.Switchboard = switchboard
-	err = t.Initialize()
+	err = c.Start(ctx)
 	if err != nil {
-		fmt.Println("Failed to initialize telnet", err.Error())
 		return
 	}
 
+	select {
+	case <-ctx.Done():
+	case <-signalChan:
+		err = fmt.Errorf("exited due to interrupt")
+	}
+	return
 }
