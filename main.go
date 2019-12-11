@@ -5,39 +5,60 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime"
 
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/xackery/talkeq/client"
 )
 
-func main() {
+// Version is the build version
+var Version string
 
-	err := start()
+func main() {
+	if runtime.GOOS != "windows" {
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	}
+	if Version == "" {
+		Version = "1.x.x EXPERIMENTAL"
+	}
+	log.Info().Msgf("starting talkeq v%s", Version)
+
+	err := run()
 	if err != nil {
-		fmt.Println("exited with error:", err.Error())
+		log.Err(err).Msg("exited with error")
 		os.Exit(1)
 	}
-	fmt.Println("exited safely")
+	log.Info().Msg("exited safely")
 	os.Exit(0)
 }
 
-func start() (err error) {
+func run() (err error) {
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
+
 	c, err := client.New(ctx)
 	if err != nil {
-		return
+		return errors.Wrap(err, "new client")
 	}
-	err = c.Start(ctx)
+
+	err = c.Connect(ctx)
 	if err != nil {
-		return
+		return errors.Wrap(err, "connect")
 	}
 
 	select {
 	case <-ctx.Done():
 	case <-signalChan:
-		err = fmt.Errorf("exited due to interrupt")
+		err = c.Disconnect(ctx)
+		if err != nil {
+			return errors.Wrap(err, "signal disconnect")
+		}
+		fmt.Println("\nexiting, interrupt signal sent")
 	}
 	return
 }
