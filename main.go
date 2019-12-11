@@ -28,6 +28,11 @@ func main() {
 	err := run()
 	if err != nil {
 		log.Err(err).Msg("exited with error")
+		if runtime.GOOS == "windows" {
+			option := ""
+			fmt.Println("press a key then enter to exit.")
+			fmt.Scan(&option)
+		}
 		os.Exit(1)
 	}
 	log.Info().Msg("exited safely")

@@ -13,60 +13,109 @@ keep_alive = true
 
 [discord]
 
-# Enable Discord
-enabled = true
+	# Enable Discord
+	enabled = true
 
-# Required. Found at https://discordapp.com/developers/ under your app's main page
-client_id = ""
+	# Required. Found at https://discordapp.com/developers/ under your app's main page
+	client_id = ""
 
-# Required. Found at https://discordapp.com/developers/ under your app's bot's section
-bot_token = ""
+	# Required. Found at https://discordapp.com/developers/ under your app's bot's section
+	bot_token = ""
 
-# Required. In Discord, right click the circle button representing your server, and Copy ID, and paste it here.
-server_id = ""
+	# Required. In Discord, right click the circle button representing your server, and Copy ID, and paste it here.
+	server_id = ""
 
-# Required. In Discord, right click a channel name and Copy ID. Paste it here.
-# Out of character messages will appear on this discord channel
-ooc_send_channel_id = ""
+	[discord.ooc]
+		# Optional. In Discord, right click a channel name and Copy ID. Paste it here.
+		# Out of character messages will appear on this discord channel
+		send_channel_id = ""
+		listen_channel_id = ""
 
-# Optional. (eqemu server owners) Which channel to listen for out of character messages
-# Will relay them via telnet to your EQEMU server
-ooc_listen_channel_id = ""
+	[discord.auction]
+		# Optional. In Discord, right click a channel name and Copy ID. Paste it here.
+		# Out of character messages will appear on this discord channel
+		send_channel_id = ""
+		listen_channel_id = ""
+	
+	[discord.guild]
+		# Optional. In Discord, right click a channel name and Copy ID. Paste it here.
+		# guild chat messages will appear on this discord channel
+		# Note: not supported with telnet (eqemu) at this time
+		send_channel_id = ""
+		listen_channel_id = ""
+	
+	[discord.shout]
+		# Optional. In Discord, right click a channel name and Copy ID. Paste it here.
+		# shout messages will appear on this discord channel
+		# Note: not supported with telnet (eqemu) at this time
+		send_channel_id = ""
+		listen_channel_id = ""
+	
+	[discord.general]
+		# Optional. In Discord, right click a channel name and Copy ID. Paste it here.
+		# general chat messages will appear on this discord channel
+		# Note: not supported with telnet (eqemu) at this time
+		send_channel_id = ""
+		listen_channel_id = ""
+	
+	[discord.guild]
+		# Optional. In Discord, right click a channel name and Copy ID. Paste it here.
+		# guild chat messages will appear on this discord channel
+		# Note: not supported with telnet (eqemu) at this time
+		send_channel_id = ""
+		listen_channel_id = ""
 
 [telnet]
 
-# Enable Telnet (eqemu server owners)
-enabled = false
+	# Enable Telnet (eqemu server owners)
+	enabled = false
 
-# Optional. (eqemu server owners). Specify where telnet is located. 
-# Akka's installer by default will use 127.0.0.1:22
-host = "127.0.0.1:22"
+	# Optional. (eqemu server owners). Specify where telnet is located. 
+	# Akka's installer by default will use 127.0.0.1:9000
+	host = "127.0.0.1:9000"
 
-# Optional. (eqemu server owners) 
-# If you run talkeq on the same server as you run eqemu, 
-# by default username and password fields are not used or required (telnet listens to localhost only)
-username = ""
+	# Optional. Username to connect to telnet with.
+	# If you run talkeq on the same server as you run eqemu, 
+	# by default username and password fields are not used or required (telnet listens to localhost only)
+	username = ""
 
-# Optional. (eqemu server owners)
-password = ""
+	# Optional. Password to connect to telnet with.
+	# If you run talkeq on the same server as you run eqemu, 
+	# by default username and password fields are not used or required (telnet listens to localhost only)
+	password = ""
 
-# Optional. Converts item URLs to provided field. defaults to allakhazam. To disable, change to ""
-# default: "http://everquest.allakhazam.com/db/item.html?item="
-item_url = "http://everquest.allakhazam.com/db/item.html?item="
+	# Optional. Converts item URLs to provided field. defaults to allakhazam. To disable, change to ""
+	# default: "http://everquest.allakhazam.com/db/item.html?item="
+	item_url = "http://everquest.allakhazam.com/db/item.html?item="
 
+	# Optional. Annunce when a server changes state to OOC channel (Server UP/Down)
+	announce_server_status = true
 
 [eqlog]
 
-# Enable EQLog parsing
-enabled = false
+	# Enable EQLog parsing
+	enabled = false
 
-# Path to find EQ Logs. Supports both / and \\, but not \
-# (If you copy paste from Explorer, be sure to double pad all backslashes, e.g. c:\\Program Files\\Everquest\\Logs)
-path = ""
+	# Path to find EQ Logs. Supports both / and \\, but not single \
+	# (If you copy paste from Explorer, be sure to escape all backslashes)
+	# example: c:\\Program Files\\Everquest\\Logs)
+	path = ""
 
-# Optional. Converts item URLs to provided field. defaults to allakhazam. To disable, change to ""
-# default: "http://everquest.allakhazam.com/db/item.html?item="
-item_url = "http://everquest.allakhazam.com/db/item.html?item="
+	# if a general chat message uses prefix WTS or WTB, convert them into auction
+	convert_general_auction = true
 
+	# listen for /auction (auction messages)
+	listen_auction = true
 
+	# listen for /ooc (out of character messages)
+	listen_ooc = true
+
+	# Listen for /1 (general chat messages)
+	listen_general = true
+
+	# Listen for /shout (shout messages)
+	listen_shout = true
+
+	# Listen for /guild (guild messages)
+	listen_guild = true
 `

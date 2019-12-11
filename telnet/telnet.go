@@ -19,23 +19,25 @@ import (
 
 // Telnet represents a telnet connection
 type Telnet struct {
-	ctx         context.Context
-	cancel      context.CancelFunc
-	isConnected bool
-	mutex       sync.RWMutex
-	config      config.Telnet
-	conn        *telnet.Conn
-	subscribers []func(string, string, int, string)
-	isNewTelnet bool
+	ctx            context.Context
+	cancel         context.CancelFunc
+	isConnected    bool
+	mutex          sync.RWMutex
+	config         config.Telnet
+	conn           *telnet.Conn
+	subscribers    []func(string, string, int, string)
+	isNewTelnet    bool
+	isInitialState bool
 }
 
 // New creates a new telnet connect
 func New(ctx context.Context, config config.Telnet) (*Telnet, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	t := &Telnet{
-		ctx:    ctx,
-		config: config,
-		cancel: cancel,
+		ctx:            ctx,
+		config:         config,
+		cancel:         cancel,
+		isInitialState: true,
 	}
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -73,10 +75,13 @@ func (t *Telnet) Connect(ctx context.Context) error {
 	}
 	log.Info().Msgf("connecting to telnet %s...", t.config.Host)
 
+	isInitialState := t.isInitialState
+	t.isInitialState = false
 	if t.conn != nil {
 		t.conn.Close()
 		t.conn = nil
 	}
+	t.ctx, t.cancel = context.WithCancel(ctx)
 
 	t.conn, err = telnet.Dial("tcp", t.config.Host)
 	if err != nil {
@@ -137,6 +142,11 @@ func (t *Telnet) Connect(ctx context.Context) error {
 	t.conn.SetWriteDeadline(time.Time{})
 	go t.loop(ctx)
 	t.isConnected = true
+	if !isInitialState && t.config.IsServerAnnounceEnabled && len(t.subscribers) > 0 {
+		for _, s := range t.subscribers {
+			s("telnet", "Admin", channel.ToInt(channel.OOC), "Server is now UP")
+		}
+	}
 	return nil
 }
 
@@ -150,6 +160,7 @@ func (t *Telnet) loop(ctx context.Context) {
 	pattern := ""
 	channels := map[string]int{
 		"says ooc,": 260,
+		"auctions,": 262,
 	}
 	for {
 		select {
@@ -234,8 +245,14 @@ func (t *Telnet) Disconnect(ctx context.Context) error {
 	if err != nil {
 		log.Warn().Err(err).Msg("telnet disconnect")
 	}
+	t.cancel()
 	t.conn = nil
 	t.isConnected = false
+	if !t.isInitialState && t.config.IsServerAnnounceEnabled && len(t.subscribers) > 0 {
+		for _, s := range t.subscribers {
+			s("telnet", "Admin", channel.ToInt(channel.OOC), "Server is now DOWN")
+		}
+	}
 	return nil
 }
 
@@ -250,15 +267,19 @@ func (t *Telnet) Send(ctx context.Context, source string, author string, channel
 	defer t.mutex.RUnlock()
 
 	if !t.config.IsEnabled {
-		log.Warn().Str("author", author).Str("channelName", channelName).Str("message", message).Msgf("discord is disabled, ignoring message")
+		log.Warn().Str("author", author).Str("channelName", channelName).Str("message", message).Msgf("telnet is disabled, ignoring message")
 	}
 
 	if !t.isConnected {
-		log.Warn().Str("author", author).Str("channelName", channelName).Str("message", message).Msgf("discord is not connected, ignoring message")
+		log.Warn().Str("author", author).Str("channelName", channelName).Str("message", message).Msgf("telnet is not connected, ignoring message")
 		return nil
 	}
 
-	err := t.sendLn(fmt.Sprintf("emote world %d %s says from %s, '%s'", channelID, author, source, message))
+	chatAction := "says"
+	if channelName == channel.Auction {
+		chatAction = "auctions"
+	}
+	err := t.sendLn(fmt.Sprintf("emote world %d %s %s from %s, '%s'", channelID, author, chatAction, source, message))
 	if err != nil {
 		return errors.Wrap(err, "send")
 	}

@@ -25,11 +25,22 @@ TalkEQ bridges your conversations from Everquest to Discord.
 
 TalkEQ bridges links between everquest and other services. Based as a rewrite of [DiscordEQ](https://github.com/xackery/discordeq).
 
-### Supported Endpoints
+### Supported Services
 
 * Discord
 * Telnet (eqemu server)
-
-### Work In Progress Endpoints
-
 * eqlog (logging via everquest's log system)
+
+
+### Supported Channels
+
+Name|Discord|Telnet|EQLog
+---|---|---|---
+OOC|Y|Y|Y
+Auction|Y|Y|Y
+Shout|Y||Y
+Guild|Y||Y
+General|Y||Y
+General Auctions|Y||Y
+
+

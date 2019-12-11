@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/BurntSushi/toml"
 	"github.com/pkg/errors"
@@ -16,25 +17,47 @@ type Config struct {
 	IsKeepAliveEnabled bool `toml:"keep_alive"`
 	Discord            Discord
 	Telnet             Telnet
+	EQLog              EQLog
 }
 
 // Discord represents config settings for discord
 type Discord struct {
-	IsEnabled          bool   `toml:"enabled"`
-	OOCListenChannelID string `toml:"ooc_listen_channel_id"`
-	OOCSendChannelID   string `toml:"ooc_send_channel_id"`
-	Token              string `toml:"bot_token"`
-	ServerID           string `toml:"server_id"`
-	ClientID           string `toml:"client_id"`
+	IsEnabled bool           `toml:"enabled"`
+	OOC       DiscordChannel `toml:"ooc"`
+	Auction   DiscordChannel `toml:"auction"`
+	Guild     DiscordChannel `toml:"guild"`
+	Shout     DiscordChannel `toml:"shout"`
+	General   DiscordChannel `toml:"general"`
+	Token     string         `toml:"bot_token"`
+	ServerID  string         `toml:"server_id"`
+	ClientID  string         `toml:"client_id"`
+}
+
+// DiscordChannel represents a discord channel
+type DiscordChannel struct {
+	SendChannelID   string `toml:"send_channel_id"`
+	ListenChannelID string `toml:"listen_channel_id"`
 }
 
 // Telnet represents config settings for telnet
 type Telnet struct {
-	IsEnabled bool
-	Host      string
-	Username  string
-	Password  string
-	ItemURL   string `toml:"item_url"`
+	IsEnabled               bool
+	Host                    string
+	Username                string
+	Password                string
+	ItemURL                 string `toml:"item_url"`
+	IsServerAnnounceEnabled bool   `toml:"announce_server_status"`
+}
+
+// EQLog represents config settings for the EQ live eqlog file
+type EQLog struct {
+	IsEnabled                   bool `toml:"enabled"`
+	Path                        string
+	IsGeneralChatAuctionEnabled bool `toml:"convert_general_auction"`
+	IsAuctionEnabled            bool `toml:"listen_auction"`
+	IsOOCEnabled                bool `toml:"listen_ooc"`
+	IsShoutEnabled              bool `toml:"listen_shout"`
+	IsGeneralEnabled            bool `toml:"listen_general"`
 }
 
 // NewConfig creates a new configuration
@@ -77,6 +100,11 @@ func NewConfig(ctx context.Context) (*Config, error) {
 			return nil, errors.Wrap(err, "write new talkeq.conf")
 		}
 		fmt.Println("a new talkeq.conf file was created. Please open this file and configure talkeq, then run it again.")
+		if runtime.GOOS == "windows" {
+			option := ""
+			fmt.Println("press a key then enter to exit.")
+			fmt.Scan(&option)
+		}
 		os.Exit(0)
 	}
 

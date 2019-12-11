@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 
@@ -86,24 +87,101 @@ func (t *Discord) Connect(ctx context.Context) error {
 	}
 
 	t.isConnected = true
-	if t.config.OOCListenChannelID == "" {
+	if t.config.OOC.ListenChannelID == "" && t.config.Auction.ListenChannelID == "" {
 		log.Info().Msgf("discord connected successfully")
 		return nil
 	}
 
-	st, err := t.conn.Channel("654278949882429447")
+	listenMsg := "for "
 
-	if err != nil {
-		if strings.Contains(err.Error(), "not snowflake") {
-			log.Error().Msgf("your bot appears to not be allowed to visit channel %s. visit https://discordapp.com/oauth2/authorize?&client_id=%s&scope=bot&permissions=268504080 and authorize", t.config.OOCListenChannelID, t.config.ClientID)
-			os.Exit(1)
+	var st *discordgo.Channel
+	chatType := channel.OOC
+	if t.config.OOC.ListenChannelID != "" {
+		st, err = t.conn.Channel(t.config.OOC.ListenChannelID)
+		if err != nil {
+			if strings.Contains(err.Error(), "not snowflake") {
+				log.Error().Msgf("your bot appears to not be allowed to visit channel %s. visit https://discordapp.com/oauth2/authorize?&client_id=%s&scope=bot&permissions=268504080 and authorize", t.config.OOC.ListenChannelID, t.config.ClientID)
+				if runtime.GOOS == "windows" {
+					option := ""
+					fmt.Println("press a key then enter to exit.")
+					fmt.Scan(&option)
+				}
+				os.Exit(1)
+			}
+			return errors.Wrapf(err, "find %s channel", chatType)
 		}
-		return errors.Wrap(err, "find ooc channel")
+
+		listenMsg += "OOC chat in #" + st.Name
+	}
+	if t.config.Auction.ListenChannelID != "" {
+		chatType = channel.Auction
+		st, err = t.conn.Channel(t.config.Auction.ListenChannelID)
+		if err != nil {
+			t.snowflakeCheck(err)
+			return errors.Wrapf(err, "find %s channel", chatType)
+		}
+
+		if listenMsg != "for " {
+			listenMsg += ", "
+		}
+		listenMsg += "Auction chat in #" + st.Name
+	}
+	if t.config.General.ListenChannelID != "" {
+		chatType = channel.General
+		st, err = t.conn.Channel(t.config.General.ListenChannelID)
+		if err != nil {
+			t.snowflakeCheck(err)
+			return errors.Wrapf(err, "find %s channel", chatType)
+		}
+
+		if listenMsg != "for " {
+			listenMsg += ", "
+		}
+		listenMsg += "General chat in #" + st.Name
+	}
+	if t.config.Shout.ListenChannelID != "" {
+		chatType = channel.Shout
+		st, err = t.conn.Channel(t.config.Shout.ListenChannelID)
+		if err != nil {
+			t.snowflakeCheck(err)
+			return errors.Wrapf(err, "find %s channel", chatType)
+		}
+
+		if listenMsg != "for " {
+			listenMsg += ", "
+		}
+		listenMsg += "Shout chat in #" + st.Name
+	}
+	if t.config.Guild.ListenChannelID != "" {
+		chatType = channel.Guild
+		st, err = t.conn.Channel(t.config.Guild.ListenChannelID)
+		if err != nil {
+			t.snowflakeCheck(err)
+			return errors.Wrapf(err, "find %s channel", chatType)
+		}
+
+		if listenMsg != "for " {
+			listenMsg += ", "
+		}
+		listenMsg += "Guild chat in #" + st.Name
 	}
 
-	log.Info().Msgf("discord connected successfully, listening for OOC chat on #%s", st.Name)
+	log.Info().Msgf("discord connected successfully, listening %s", listenMsg)
 
 	return nil
+}
+
+func (t *Discord) snowflakeCheck(err error) {
+	if !strings.Contains(err.Error(), "not snowflake") {
+		return
+	}
+	log.Error().Msgf("your bot appears to not be allowed to visit channel %s. visit https://discordapp.com/oauth2/authorize?&client_id=%s&scope=bot&permissions=268504080 and authorize", t.config.OOC.ListenChannelID, t.config.ClientID)
+	if runtime.GOOS == "windows" {
+		option := ""
+		fmt.Println("press a key then enter to exit.")
+		fmt.Scan(&option)
+	}
+	os.Exit(1)
 }
 
 // IsConnected returns if a connection is established
@@ -145,15 +223,23 @@ func (t *Discord) Send(ctx context.Context, source string, author string, channe
 	defer t.mutex.RUnlock()
 
 	if !t.config.IsEnabled {
-		log.Warn().Str("author", author).Str("channelName", channelName).Str("message", message).Msgf("discord is disabled, ignoring message")
+		log.Warn().Str("author", author).Str("channelName", channelName).Str("message", message).Msgf("discord is disabled")
 	}
 
 	if !t.isConnected {
-		log.Warn().Str("author", author).Str("channelName", channelName).Str("message", message).Msgf("discord is not connected, ignoring message")
+		log.Warn().Str("author", author).Str("channelName", channelName).Str("message", message).Msgf("discord is not connected")
 		return nil
 	}
 
-	_, err := t.conn.ChannelMessageSend(string(t.config.OOCSendChannelID), fmt.Sprintf("**%s %s:** %s", author, channelName, message))
+	sendChannelID := ""
+	if channelName == channel.Auction {
+		sendChannelID = t.config.Auction.SendChannelID
+	}
+	if channelName == channel.OOC {
+		sendChannelID = t.config.OOC.SendChannelID
+	}
+
+	_, err := t.conn.ChannelMessageSend(sendChannelID, fmt.Sprintf("**%s %s:** %s", author, channelName, message))
 	if err != nil {
 		return errors.Wrapf(err, "send %s %s: %s", author, channelName, message)
 	}
@@ -190,13 +276,13 @@ func (t *Discord) handler(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	member, err := s.GuildMember(string(t.config.ServerID), m.Author.ID)
+	member, err := s.GuildMember(t.config.ServerID, m.Author.ID)
 	if err != nil {
 		log.Warn().Err(err).Str("author_id", m.Author.ID).Msg("guild member lookup")
 		return
 	}
 
-	roles, err := s.GuildRoles(string(t.config.ServerID))
+	roles, err := s.GuildRoles(t.config.ServerID)
 	if err != nil {
 		log.Warn().Err(err).Str("server_id", t.config.ServerID).Msg("get roles")
 		return
@@ -231,8 +317,11 @@ func (t *Discord) handler(s *discordgo.Session, m *discordgo.MessageCreate) {
 	ign = sanitize(ign)
 
 	channelID := 0
-	if string(t.config.OOCListenChannelID) == m.ChannelID {
-		channelID = channel.ToInt("ooc")
+	if t.config.Auction.ListenChannelID == m.ChannelID {
+		channelID = channel.ToInt(channel.Auction)
+	}
+	if t.config.OOC.ListenChannelID == m.ChannelID {
+		channelID = channel.ToInt(channel.OOC)
 	}
 
 	if channelID == 0 {

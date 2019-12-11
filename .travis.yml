@@ -15,6 +15,5 @@ install:
   - go get github.com/mattn/goveralls
   - go get golang.org/x/tools/cmd/cover
   - go get gopkg.in/h2non/baloo.v3
-  - go get github.com/nats-io/go-nats
 script:  
   - goveralls -service=travis-ci

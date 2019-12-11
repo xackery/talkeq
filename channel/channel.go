@@ -5,9 +5,27 @@ import (
 	"sync"
 )
 
+const (
+	// Auction channel name
+	Auction = "auction"
+	// OOC channel name
+	OOC = "ooc"
+	// General Chat channel name
+	General = "general"
+	// Guild Chat channel name
+	Guild = "guild"
+	// Shout channel name
+	Shout = "shout"
+)
+
 var (
+	// https://eqemu.gitbook.io/server/categories/types/chat-channel-types
 	channels = map[string]int{
-		"ooc": 260,
+		"ooc":     260,
+		"auction": 261,
+		"general": 291,
+		"guild":   259,
+		"shout":   262,
 	}
 	mutex sync.RWMutex
 )

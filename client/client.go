@@ -10,6 +10,7 @@ import (
 
 	"github.com/xackery/talkeq/config"
 	"github.com/xackery/talkeq/discord"
+	"github.com/xackery/talkeq/eqlog"
 	"github.com/xackery/talkeq/telnet"
 
 	"github.com/pkg/errors"
@@ -24,6 +25,7 @@ type Client struct {
 	config  *config.Config
 	discord *discord.Discord
 	telnet  *telnet.Telnet
+	eqlog   *eqlog.EQLog
 }
 
 // New creates a new client
@@ -61,6 +63,16 @@ func New(ctx context.Context) (*Client, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "telnet subscribe")
 	}
+
+	c.eqlog, err = eqlog.New(ctx, c.config.EQLog)
+	if err != nil {
+		return nil, errors.Wrap(err, "eqlog")
+	}
+
+	err = c.eqlog.Subscribe(ctx, c.onMessage)
+	if err != nil {
+		return nil, errors.Wrap(err, "eqlog subscribe")
+	}
 	return &c, nil
 }
 
@@ -80,6 +92,14 @@ func (c *Client) Connect(ctx context.Context) error {
 			return errors.Wrap(err, "telnet connect")
 		}
 		log.Warn().Err(err).Msg("telnet connect")
+	}
+
+	err = c.eqlog.Connect(ctx)
+	if err != nil {
+		if !c.config.IsKeepAliveEnabled {
+			return errors.Wrap(err, "eqlog connect")
+		}
+		log.Warn().Err(err).Msg("eqlog connect")
 	}
 
 	go c.loop(ctx)
@@ -143,6 +163,22 @@ func (c *Client) onMessage(source string, author string, channelID int, message 
 				endpoints = "telnet"
 			} else {
 				endpoints += ",telnet"
+			}
+		}
+		log.Info().Msgf("[%s->%s] %s %s: %s", source, endpoints, author, channel.ToString(channelID), message)
+	case "eqlog":
+		if !c.config.Discord.IsEnabled {
+			log.Info().Msgf("[%s->none] %s %s: %s", source, author, channel.ToString(channelID), message)
+			return
+		}
+		err = c.discord.Send(context.Background(), source, author, channelID, message)
+		if err != nil {
+			log.Warn().Err(err).Msg("discord send")
+		} else {
+			if endpoints == "none" {
+				endpoints = "discord"
+			} else {
+				endpoints += ",discord"
 			}
 		}
 		log.Info().Msgf("[%s->%s] %s %s: %s", source, endpoints, author, channel.ToString(channelID), message)
