@@ -11,6 +11,9 @@ debug = false
 # Not recommended to turn off except in advanced cases
 keep_alive = true
 
+# How long before retrying to connect (requires keep_alive = true)
+keep_alive_retry = "10s"
+
 [discord]
 
 	# Enable Discord
@@ -90,6 +93,10 @@ keep_alive = true
 
 	# Optional. Annunce when a server changes state to OOC channel (Server UP/Down)
 	announce_server_status = true
+
+	# How long to wait for messages. (Advanced users only)
+	# defaut: 10s
+	message_deadline = "10s"
 
 [eqlog]
 

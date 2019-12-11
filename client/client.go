@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"runtime"
 	"time"
@@ -42,6 +43,10 @@ func New(ctx context.Context) (*Client, error) {
 	c.config, err = config.NewConfig(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "config")
+	}
+
+	if c.config.IsKeepAliveEnabled && c.config.KeepAliveRetry.Seconds() < 2 {
+		return nil, fmt.Errorf("keep_alive_retry must be greater than 2s")
 	}
 
 	c.discord, err = discord.New(ctx, c.config.Discord)
@@ -119,7 +124,7 @@ func (c *Client) loop(ctx context.Context) {
 			return
 		default:
 		}
-		time.Sleep(10 * time.Second)
+		time.Sleep(c.config.KeepAliveRetry)
 		if c.config.Discord.IsEnabled && !c.discord.IsConnected() {
 			log.Info().Msg("attempting to reconnect to discord")
 			err = c.discord.Connect(ctx)

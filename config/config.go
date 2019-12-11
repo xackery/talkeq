@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/pkg/errors"
@@ -14,7 +15,8 @@ import (
 // Config represents a configuration parse
 type Config struct {
 	Debug              bool
-	IsKeepAliveEnabled bool `toml:"keep_alive"`
+	IsKeepAliveEnabled bool          `toml:"keep_alive"`
+	KeepAliveRetry     time.Duration `toml:"keep_alive_retry"`
 	Discord            Discord
 	Telnet             Telnet
 	EQLog              EQLog
@@ -45,8 +47,9 @@ type Telnet struct {
 	Host                    string
 	Username                string
 	Password                string
-	ItemURL                 string `toml:"item_url"`
-	IsServerAnnounceEnabled bool   `toml:"announce_server_status"`
+	ItemURL                 string        `toml:"item_url"`
+	IsServerAnnounceEnabled bool          `toml:"announce_server_status"`
+	MessageDeadline         time.Duration `toml:"message_deadline"`
 }
 
 // EQLog represents config settings for the EQ live eqlog file

@@ -52,6 +52,10 @@ func New(ctx context.Context, config config.Telnet) (*Telnet, error) {
 		config.Host = "127.0.0.1:23"
 	}
 
+	if config.MessageDeadline.Seconds() < 1 {
+		return nil, fmt.Errorf("telnet.message_deadline must be greater than 1s")
+	}
+
 	return t, nil
 }
 
@@ -87,11 +91,11 @@ func (t *Telnet) Connect(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "dial")
 	}
-	err = t.conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	err = t.conn.SetReadDeadline(time.Now().Add(t.config.MessageDeadline))
 	if err != nil {
 		return errors.Wrap(err, "set read deadline")
 	}
-	err = t.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	err = t.conn.SetWriteDeadline(time.Now().Add(t.config.MessageDeadline))
 	if err != nil {
 		return errors.Wrap(err, "set write deadline")
 	}
