@@ -54,7 +54,8 @@ func New(ctx context.Context, config config.Telnet) (*Telnet, error) {
 	}
 
 	if config.MessageDeadline.Seconds() < 1 {
-		return nil, fmt.Errorf("telnet.message_deadline must be greater than 1s")
+		config.MessageDeadline = 10 * time.Second
+		//return nil, fmt.Errorf("telnet.message_deadline must be greater than 1s")
 	}
 
 	return t, nil

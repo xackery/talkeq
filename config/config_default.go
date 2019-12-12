@@ -64,13 +64,6 @@ keep_alive_retry = "10s"
 		# Note: not supported with telnet (eqemu) at this time
 		send_channel_id = ""
 		listen_channel_id = ""
-	
-	[discord.guild]
-		# Optional. In Discord, right click a channel name and Copy ID. Paste it here.
-		# guild chat messages will appear on this discord channel
-		# Note: not supported with telnet (eqemu) at this time
-		send_channel_id = ""
-		listen_channel_id = ""
 
 [telnet]
 

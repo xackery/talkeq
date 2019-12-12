@@ -44,7 +44,7 @@ type DiscordChannel struct {
 
 // Telnet represents config settings for telnet
 type Telnet struct {
-	IsEnabled               bool
+	IsEnabled               bool `toml:"enabled"`
 	Host                    string
 	Username                string
 	Password                string
