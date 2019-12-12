@@ -2,7 +2,7 @@ package config
 
 var defaultConfig = `# TalkEQ Configuration
 
-# Enable debug when a crash occurs that is not self apparant
+# Enable debug when a crash occurs that is not self apparent
 # Not recommended on normal use, very verbose
 debug = false
 
@@ -18,6 +18,10 @@ keep_alive_retry = "10s"
 
 	# Enable Discord
 	enabled = true
+
+	# Status to show below bot. e.g. "Playing EQ: 123 Online"
+	# {{.PlayerCount}} to show playercount
+	bot_status = "EQ: {{.PlayerCount}} Online"
 
 	# Required. Found at https://discordapp.com/developers/ under your app's main page
 	client_id = ""

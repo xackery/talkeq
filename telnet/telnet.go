@@ -28,6 +28,7 @@ type Telnet struct {
 	subscribers    []func(string, string, int, string)
 	isNewTelnet    bool
 	isInitialState bool
+	online         int
 }
 
 // New creates a new telnet connect
@@ -160,6 +161,8 @@ func (t *Telnet) loop(ctx context.Context) {
 	author := ""
 	channelID := 0
 	msg := ""
+	var p int
+	var online int64
 
 	pattern := ""
 	channels := map[string]int{
@@ -191,6 +194,24 @@ func (t *Telnet) loop(ctx context.Context) {
 				pattern = k
 			}
 		}
+
+		p = strings.Index(msg, "players online")
+		if p > 0 {
+			p = strings.Index(msg, " ")
+			if p > 0 {
+				if msg[p+1:] == "players online" {
+					online, err = strconv.ParseInt(msg[:p], 10, 64)
+					if err != nil {
+						log.Debug().Str("online", msg[:p]).Str("msg", msg).Msg("online count ignored, parse failed?")
+					} else {
+						t.mutex.Lock()
+						t.online = int(online)
+						t.mutex.Unlock()
+					}
+				}
+			}
+		}
+
 		if channelID == 0 {
 			log.Debug().Str("msg", msg).Msg("ignored (unknown channel msg)")
 			continue
@@ -223,15 +244,31 @@ func (t *Telnet) loop(ctx context.Context) {
 		author = strings.Replace(author, "_", " ", -1)
 		msg = t.convertLinks(msg)
 
+		t.mutex.RLock()
 		if len(t.subscribers) == 0 {
+			t.mutex.RUnlock()
 			log.Debug().Msg("telnet message, but no subscribers to notify, ignoring")
-			return
+			continue
 		}
 
 		for _, s := range t.subscribers {
 			s("telnet", author, channelID, msg)
 		}
+		t.mutex.RUnlock()
 	}
+}
+
+// Who returns number of online players
+func (t *Telnet) Who(ctx context.Context) (int, error) {
+	err := t.sendLn("who")
+	if err != nil {
+		return 0, errors.Wrap(err, "who request")
+	}
+	time.Sleep(100 * time.Millisecond)
+	t.mutex.RLock()
+	online := t.online
+	t.mutex.RUnlock()
+	return online, nil
 }
 
 // Disconnect stops a previously started connection with Telnet.

@@ -33,6 +33,7 @@ type Discord struct {
 	Token     string         `toml:"bot_token"`
 	ServerID  string         `toml:"server_id"`
 	ClientID  string         `toml:"client_id"`
+	BotStatus string         `toml:"bot_status"`
 }
 
 // DiscordChannel represents a discord channel

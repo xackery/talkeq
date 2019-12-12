@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"runtime"
 	"time"
@@ -46,7 +45,8 @@ func New(ctx context.Context) (*Client, error) {
 	}
 
 	if c.config.IsKeepAliveEnabled && c.config.KeepAliveRetry.Seconds() < 2 {
-		return nil, fmt.Errorf("keep_alive_retry must be greater than 2s")
+		c.config.KeepAliveRetry = 10 * time.Second
+		//return nil, fmt.Errorf("keep_alive_retry must be greater than 2s")
 	}
 
 	c.discord, err = discord.New(ctx, c.config.Discord)
@@ -112,11 +112,35 @@ func (c *Client) Connect(ctx context.Context) error {
 }
 
 func (c *Client) loop(ctx context.Context) {
+	var err error
+	go func() {
+		var err error
+		var online int
+		for {
+			select {
+			case <-ctx.Done():
+				log.Debug().Msg("status loop exit, context done")
+				return
+			default:
+			}
+			if c.config.Telnet.IsEnabled && c.config.Discord.IsEnabled {
+				online, err = c.telnet.Who(ctx)
+				if err != nil {
+					log.Warn().Err(err).Msg("telnet who")
+				}
+				err = c.discord.StatusUpdate(ctx, online, "")
+				if err != nil {
+					log.Warn().Err(err).Msg("discord status update")
+				}
+			}
+
+			time.Sleep(60 * time.Second)
+		}
+	}()
 	if !c.config.IsKeepAliveEnabled {
 		log.Debug().Msg("keep_alive disabled in config, exiting client loop")
 		return
 	}
-	var err error
 	for {
 		select {
 		case <-ctx.Done():

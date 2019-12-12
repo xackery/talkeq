@@ -1,6 +1,7 @@
 package discord
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -8,6 +9,8 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"text/template"
+	"time"
 
 	"github.com/rs/zerolog/log"
 
@@ -20,6 +23,7 @@ import (
 // Discord represents a discord connection
 type Discord struct {
 	ctx         context.Context
+	cancel      context.CancelFunc
 	isConnected bool
 	mutex       sync.RWMutex
 	config      config.Discord
@@ -29,12 +33,16 @@ type Discord struct {
 
 // New creates a new discord connect
 func New(ctx context.Context, config config.Discord) (*Discord, error) {
+	ctx, cancel := context.WithCancel(ctx)
+
 	t := &Discord{
 		ctx:    ctx,
+		cancel: cancel,
 		config: config,
 	}
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
+
 	log.Debug().Msg("verifying discord configuration")
 
 	if !config.IsEnabled {
@@ -52,6 +60,7 @@ func New(ctx context.Context, config config.Discord) (*Discord, error) {
 	if config.ServerID == "" {
 		return nil, fmt.Errorf("server_id must be set")
 	}
+
 	return t, nil
 }
 
@@ -71,7 +80,9 @@ func (t *Discord) Connect(ctx context.Context) error {
 	if t.conn != nil {
 		t.conn.Close()
 		t.conn = nil
+		t.cancel()
 	}
+	t.ctx, t.cancel = context.WithCancel(ctx)
 
 	t.conn, err = discordgo.New("Bot " + t.config.Token)
 	if err != nil {
@@ -85,6 +96,8 @@ func (t *Discord) Connect(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "open")
 	}
+
+	go t.loop(ctx)
 
 	t.isConnected = true
 	if t.config.OOC.ListenChannelID == "" && t.config.Auction.ListenChannelID == "" {
@@ -168,6 +181,10 @@ func (t *Discord) Connect(ctx context.Context) error {
 
 	log.Info().Msgf("discord connected successfully, listening %s", listenMsg)
 
+	err = t.StatusUpdate(ctx, 0, "Status: Online")
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -182,6 +199,46 @@ func (t *Discord) snowflakeCheck(err error) {
 		fmt.Scan(&option)
 	}
 	os.Exit(1)
+}
+
+func (t *Discord) loop(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			log.Debug().Msg("discord loop exit")
+			return
+		default:
+		}
+
+		time.Sleep(60 * time.Second)
+	}
+}
+
+// StatusUpdate updates the status text on discord
+func (t *Discord) StatusUpdate(ctx context.Context, online int, customText string) error {
+	var err error
+	if customText != "" {
+		err = t.conn.UpdateStatus(0, customText)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	tmpl := template.New("online")
+	tmpl.Parse(t.config.BotStatus)
+
+	buf := new(bytes.Buffer)
+	tmpl.Execute(buf, struct {
+		PlayerCount int
+	}{
+		online,
+	})
+
+	err = t.conn.UpdateStatus(0, buf.String())
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // IsConnected returns if a connection is established
