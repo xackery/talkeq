@@ -54,7 +54,7 @@ func New(ctx context.Context, config config.Telnet) (*Telnet, error) {
 	}
 
 	if config.MessageDeadline.Seconds() < 1 {
-		config.MessageDeadline = 10 * time.Second
+		config.MessageDeadline.Duration = 10 * time.Second
 		//return nil, fmt.Errorf("telnet.message_deadline must be greater than 1s")
 	}
 
@@ -93,17 +93,18 @@ func (t *Telnet) Connect(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "dial")
 	}
-	err = t.conn.SetReadDeadline(time.Now().Add(t.config.MessageDeadline))
+	err = t.conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 	if err != nil {
 		return errors.Wrap(err, "set read deadline")
 	}
-	err = t.conn.SetWriteDeadline(time.Now().Add(t.config.MessageDeadline))
+	err = t.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 	if err != nil {
 		return errors.Wrap(err, "set write deadline")
 	}
 	t.isNewTelnet = false
 	index := 0
 	skipAuth := false
+
 	index, err = t.conn.SkipUntilIndex("Username:", "Connection established from localhost, assuming admin")
 	if err != nil {
 		return errors.Wrap(err, "unexpected initial handshake")
@@ -162,8 +163,6 @@ func (t *Telnet) loop(ctx context.Context) {
 	author := ""
 	channelID := 0
 	msg := ""
-	var p int
-	var online int64
 
 	pattern := ""
 	channels := map[string]int{
@@ -196,22 +195,7 @@ func (t *Telnet) loop(ctx context.Context) {
 			}
 		}
 
-		p = strings.Index(msg, "players online")
-		if p > 0 {
-			p = strings.Index(msg, " ")
-			if p > 0 {
-				if msg[p+1:] == "players online" {
-					online, err = strconv.ParseInt(msg[:p], 10, 64)
-					if err != nil {
-						log.Debug().Str("online", msg[:p]).Str("msg", msg).Msg("online count ignored, parse failed?")
-					} else {
-						t.mutex.Lock()
-						t.online = int(online)
-						t.mutex.Unlock()
-					}
-				}
-			}
-		}
+		t.parsePlayersOnline(msg)
 
 		if channelID == 0 {
 			log.Debug().Str("msg", msg).Msg("ignored (unknown channel msg)")
@@ -237,11 +221,12 @@ func (t *Telnet) loop(ctx context.Context) {
 		author = alphanumeric(author)
 
 		padOffset := 3
+
 		if t.isNewTelnet { //if new telnet, offset is 2 off.
 			padOffset = 2
 		}
 
-		msg = msg[strings.Index(msg, pattern)+12 : len(msg)-padOffset]
+		msg = msg[strings.Index(msg, pattern)+11 : len(msg)-padOffset]
 		author = strings.Replace(author, "_", " ", -1)
 		msg = t.convertLinks(msg)
 
@@ -388,4 +373,33 @@ func alphanumeric(data string) string {
 	re := regexp.MustCompile("[^a-zA-Z0-9_]+")
 	data = re.ReplaceAllString(data, "")
 	return data
+}
+
+func (t *Telnet) parsePlayersOnline(msg string) {
+	p := strings.Index(msg, "players online")
+	if p <= 0 {
+		return
+	}
+
+	p = strings.Index(msg, " ")
+	if p <= 0 {
+		log.Debug().Str("msg", msg).Msg("online count ignored, no space found")
+		return
+	}
+
+	if msg[p+1:] != "players online\n" {
+		log.Debug().Str("msg[p+1:]", msg[p+1:]).Str("msg", msg).Msg("online count ignored, space pattern not matched")
+		return
+	}
+
+	online, err := strconv.ParseInt(msg[:p], 10, 64)
+	if err != nil {
+		log.Debug().Str("online", msg[:p]).Str("msg", msg).Msg("online count ignored, parse failed?")
+		return
+	}
+
+	t.mutex.Lock()
+	t.online = int(online)
+	t.mutex.Unlock()
+	log.Debug().Int64("online", online).Msg("updated online count")
 }

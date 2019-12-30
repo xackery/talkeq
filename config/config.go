@@ -12,11 +12,21 @@ import (
 	"github.com/rs/zerolog"
 )
 
+type duration struct {
+	time.Duration
+}
+
+func (d *duration) UnmarshalText(text []byte) error {
+	var err error
+	d.Duration, err = time.ParseDuration(string(text))
+	return err
+}
+
 // Config represents a configuration parse
 type Config struct {
 	Debug              bool
-	IsKeepAliveEnabled bool          `toml:"keep_alive"`
-	KeepAliveRetry     time.Duration `toml:"keep_alive_retry"`
+	IsKeepAliveEnabled bool     `toml:"keep_alive"`
+	KeepAliveRetry     duration `toml:"keep_alive_retry"`
 	Discord            Discord
 	Telnet             Telnet
 	EQLog              EQLog
@@ -48,9 +58,9 @@ type Telnet struct {
 	Host                    string
 	Username                string
 	Password                string
-	ItemURL                 string        `toml:"item_url"`
-	IsServerAnnounceEnabled bool          `toml:"announce_server_status"`
-	MessageDeadline         time.Duration `toml:"message_deadline"`
+	ItemURL                 string   `toml:"item_url"`
+	IsServerAnnounceEnabled bool     `toml:"announce_server_status"`
+	MessageDeadline         duration `toml:"message_deadline"`
 }
 
 // EQLog represents config settings for the EQ live eqlog file

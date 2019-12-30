@@ -29,6 +29,7 @@ type Discord struct {
 	config      config.Discord
 	conn        *discordgo.Session
 	subscribers []func(string, string, int, string)
+	id          string
 }
 
 // New creates a new discord connect
@@ -178,6 +179,14 @@ func (t *Discord) Connect(ctx context.Context) error {
 		}
 		listenMsg += "Guild chat in #" + st.Name
 	}
+
+	myUser, err := t.conn.User("@me")
+	if err != nil {
+		return errors.Wrap(err, "get my username")
+	}
+
+	t.id = myUser.ID
+	log.Debug().Str("id", t.id).Msg("@me")
 
 	log.Info().Msgf("discord connected successfully, listening %s", listenMsg)
 
@@ -364,6 +373,11 @@ func (t *Discord) handler(s *discordgo.Session, m *discordgo.MessageCreate) {
 				ign = strings.TrimSpace(splitStr[1])
 			}
 		}
+	}
+
+	if m.Author.ID == t.id {
+		log.Debug().Msgf("discord message from bot id %s ignored (message: %s)", m.Author.ID, msg)
+		return
 	}
 
 	if ign == "" {

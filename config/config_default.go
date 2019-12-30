@@ -12,6 +12,7 @@ debug = false
 keep_alive = true
 
 # How long before retrying to connect (requires keep_alive = true)
+# default: 10s
 keep_alive_retry = "10s"
 
 [discord]

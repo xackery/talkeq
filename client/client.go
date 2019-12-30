@@ -45,7 +45,7 @@ func New(ctx context.Context) (*Client, error) {
 	}
 
 	if c.config.IsKeepAliveEnabled && c.config.KeepAliveRetry.Seconds() < 2 {
-		c.config.KeepAliveRetry = 10 * time.Second
+		c.config.KeepAliveRetry.Duration = 10 * time.Second
 		//return nil, fmt.Errorf("keep_alive_retry must be greater than 2s")
 	}
 
@@ -148,7 +148,7 @@ func (c *Client) loop(ctx context.Context) {
 			return
 		default:
 		}
-		time.Sleep(c.config.KeepAliveRetry)
+		time.Sleep(c.config.KeepAliveRetry.Duration)
 		if c.config.Discord.IsEnabled && !c.discord.IsConnected() {
 			log.Info().Msg("attempting to reconnect to discord")
 			err = c.discord.Connect(ctx)
