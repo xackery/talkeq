@@ -167,7 +167,7 @@ func (t *Telnet) loop(ctx context.Context) {
 	pattern := ""
 	channels := map[string]int{
 		"says ooc,": 260,
-		"auctions,": 262,
+		"auctions,": 261,
 	}
 	for {
 		select {
@@ -180,7 +180,8 @@ func (t *Telnet) loop(ctx context.Context) {
 		data, err = t.conn.ReadUntil("\n")
 		if err != nil {
 			log.Warn().Err(err).Msgf("telnet read")
-			continue
+			t.Disconnect(context.Background())
+			return
 		}
 		msg = string(data)
 		if len(msg) < 3 { //ignore small messages

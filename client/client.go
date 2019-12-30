@@ -156,6 +156,13 @@ func (c *Client) loop(ctx context.Context) {
 				log.Warn().Err(err).Msg("discord connect")
 			}
 		}
+		if c.config.Telnet.IsEnabled && !c.telnet.IsConnected() {
+			log.Info().Msg("attempting to reconnect to telnet")
+			err = c.telnet.Connect(ctx)
+			if err != nil {
+				log.Warn().Err(err).Msg("telnet connect")
+			}
+		}
 	}
 }
 
