@@ -17,10 +17,9 @@ Name|Discord|Telnet|EQLog
 ---|---|---|---
 OOC|Y|Y|Y
 Auction|Y|N|Y
-Shout|Y||Y
-Guild|Y||Y
-General|Y||Y
-General Auctions|Y||Y
+Shout|Y|N|Y
+Guild|Y|N|Y
+General|Y|N|Y
 
 ## Linking Discord
 
