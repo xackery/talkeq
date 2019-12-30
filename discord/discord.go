@@ -304,6 +304,9 @@ func (t *Discord) Send(ctx context.Context, source string, author string, channe
 	if channelName == channel.OOC {
 		sendChannelID = t.config.OOC.SendChannelID
 	}
+	if channelName == channel.General {
+		sendChannelID = t.config.General.SendChannelID
+	}
 
 	_, err := t.conn.ChannelMessageSend(sendChannelID, fmt.Sprintf("**%s %s:** %s", author, channelName, message))
 	if err != nil {

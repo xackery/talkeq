@@ -168,6 +168,7 @@ func (t *Telnet) loop(ctx context.Context) {
 	channels := map[string]int{
 		"says ooc,": 260,
 		"auctions,": 261,
+		"general,":  291,
 	}
 	for {
 		select {
@@ -228,9 +229,12 @@ func (t *Telnet) loop(ctx context.Context) {
 		}
 
 		msg = msg[strings.Index(msg, pattern)+11 : len(msg)-padOffset]
-		author = strings.Replace(author, "_", " ", -1)
+		if pattern == "general," && strings.Index(msg, "[#General ") > 0 { //general has a special message append
+			msg = msg[strings.Index(msg, "[#General ")+10:]
+		}
+		author = strings.ReplaceAll(author, "_", " ")
 		msg = t.convertLinks(msg)
-
+		msg = strings.ReplaceAll(msg, "\n", "")
 		t.mutex.RLock()
 		if len(t.subscribers) == 0 {
 			t.mutex.RUnlock()
