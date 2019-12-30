@@ -237,6 +237,18 @@ func (t *Telnet) loop(ctx context.Context) {
 			continue
 		}
 
+		p := 0
+		if t.config.IsOOCAuctionEnabled {
+			p = strings.Index(msg, "WTS ")
+			if p > -1 {
+				channelID = channel.ToInt(channel.Auction)
+			}
+			p = strings.Index(msg, "WTB ")
+			if p > -1 {
+				channelID = channel.ToInt(channel.Auction)
+			}
+		}
+
 		for _, s := range t.subscribers {
 			s("telnet", author, channelID, msg)
 		}

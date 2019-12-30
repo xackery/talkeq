@@ -61,6 +61,7 @@ type Telnet struct {
 	ItemURL                 string   `toml:"item_url"`
 	IsServerAnnounceEnabled bool     `toml:"announce_server_status"`
 	MessageDeadline         duration `toml:"message_deadline"`
+	IsOOCAuctionEnabled     bool     `toml:"convert_ooc_auction"`
 }
 
 // EQLog represents config settings for the EQ live eqlog file

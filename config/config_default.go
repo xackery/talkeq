@@ -96,6 +96,9 @@ keep_alive_retry = "10s"
 	# defaut: 10s
 	message_deadline = "10s"
 
+	# if a OOC message uses prefix WTS or WTB, convert them into auction
+	convert_ooc_auction = true
+
 [eqlog]
 
 	# Enable EQLog parsing
