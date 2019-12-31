@@ -15,6 +15,14 @@ keep_alive = true
 # default: 10s
 keep_alive_retry = "10s"
 
+# Users by IDs are mapped to their display names via the raw text file called users database
+# If users database file does not exist, a new one is created
+# This file is actively monitored. if you edit it while talkeq is running, it will reload the changes
+# This file overrides the IGN: playerName role tags in discord
+# If a user is found on this list, it will fall back to check for IGN tags
+# If you do an API registration, it will update the users database
+users_database = "./users.txt"
+
 [discord]
 
 	# Enable Discord
@@ -145,6 +153,6 @@ keep_alive_retry = "10s"
 	path = "/var/www/peq/peqphpeditor/logs"
 
 	# File Pattern of SQL Log files, only needs to be changed if you edit it to a custom value 
-	# default: sql_log_{{.MONTH}}-{{.YEAR}}.sql
-	file_pattern = "sql_log_{{.MONTH}}-{{.YEAR}}.sql"
+	# default: sql_log_{{.Month}}-{{.Year}}.sql
+	file_pattern = "sql_log_{{.Month}}-{{.Year}}.sql"
 `

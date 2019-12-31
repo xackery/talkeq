@@ -5,7 +5,7 @@ go 1.13
 require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/bwmarrin/discordgo v0.20.1
-	github.com/fsnotify/fsnotify v1.4.7 // indirect
+	github.com/fsnotify/fsnotify v1.4.7
 	github.com/hpcloud/tail v1.0.0
 	github.com/pkg/errors v0.8.1
 	github.com/rs/zerolog v1.17.2

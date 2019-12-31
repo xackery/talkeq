@@ -31,6 +31,7 @@ type Config struct {
 	Telnet             Telnet
 	EQLog              EQLog
 	PEQEditor          PEQEditor `toml:"peq_editor"`
+	UsersDatabasePath  string    `toml:"users_database"`
 }
 
 // Discord represents config settings for discord

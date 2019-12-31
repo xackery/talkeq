@@ -12,12 +12,12 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"github.com/xackery/talkeq/channel"
 	"github.com/xackery/talkeq/config"
+	"github.com/xackery/talkeq/database"
 )
 
 // Discord represents a discord connection
@@ -30,16 +30,18 @@ type Discord struct {
 	conn        *discordgo.Session
 	subscribers []func(string, string, int, string)
 	id          string
+	users       *database.UserManager
 }
 
 // New creates a new discord connect
-func New(ctx context.Context, config config.Discord) (*Discord, error) {
+func New(ctx context.Context, config config.Discord, userManager *database.UserManager) (*Discord, error) {
 	ctx, cancel := context.WithCancel(ctx)
 
 	t := &Discord{
 		ctx:    ctx,
 		cancel: cancel,
 		config: config,
+		users:  userManager,
 	}
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -358,37 +360,13 @@ func (t *Discord) handler(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	member, err := s.GuildMember(t.config.ServerID, m.Author.ID)
-	if err != nil {
-		log.Warn().Err(err).Str("author_id", m.Author.ID).Msg("guild member lookup")
-		return
-	}
-
-	roles, err := s.GuildRoles(t.config.ServerID)
-	if err != nil {
-		log.Warn().Err(err).Str("server_id", t.config.ServerID).Msg("get roles")
-		return
-	}
-
-	for _, role := range member.Roles {
-		if ign != "" {
-			break
-		}
-		for _, gRole := range roles {
-			if ign != "" {
-				break
-			}
-			if strings.TrimSpace(gRole.ID) != strings.TrimSpace(role) {
-				continue
-			}
-			if !strings.Contains(gRole.Name, "IGN:") {
-				continue
-			}
-			splitStr := strings.Split(gRole.Name, "IGN:")
-			if len(splitStr) > 1 {
-				ign = strings.TrimSpace(splitStr[1])
-			}
-		}
+	ign = t.users.Name(m.Author.ID)
+	if ign == "" {
+		t.getIGNName(s, m.Author.ID)
+		//disabled this code since it would cache results and remove dynamics
+		//if ign != "" { //update users database with newly found ign tag
+		//	t.users.Set(m.Author.ID, ign)
+		//}
 	}
 
 	if m.Author.ID == t.id {
@@ -426,4 +404,41 @@ func sanitize(data string) string {
 	re := regexp.MustCompile("[^\x00-\x7F]+")
 	data = re.ReplaceAllString(data, "")
 	return data
+}
+
+func (t *Discord) getIGNName(s *discordgo.Session, userid string) string {
+	ign := ""
+
+	member, err := s.GuildMember(t.config.ServerID, userid)
+	if err != nil {
+		log.Warn().Err(err).Str("author_id", userid).Msg("guild member lookup")
+		return ""
+	}
+	roles, err := s.GuildRoles(t.config.ServerID)
+	if err != nil {
+		log.Warn().Err(err).Str("server_id", t.config.ServerID).Msg("get roles")
+		return ""
+	}
+
+	for _, role := range member.Roles {
+		if ign != "" {
+			break
+		}
+		for _, gRole := range roles {
+			if ign != "" {
+				break
+			}
+			if strings.TrimSpace(gRole.ID) != strings.TrimSpace(role) {
+				continue
+			}
+			if !strings.Contains(gRole.Name, "IGN:") {
+				continue
+			}
+			splitStr := strings.Split(gRole.Name, "IGN:")
+			if len(splitStr) > 1 {
+				ign = strings.TrimSpace(splitStr[1])
+			}
+		}
+	}
+	return ign
 }
