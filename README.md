@@ -46,9 +46,17 @@ Telnet|ooc
 
 
 ### Configure discord users to talk from Discord to EQ
+
+#### Using Discord Roles
+
 * (Admin-level accounts on Discord can only do the following steps.)
 * Inside discord go to Server Settings.
 * Go to Roles.
 * Create a new role, with the name: `IGN: <username>`. The `IGN:` prefix is required for DiscordEQ to detect a player and is used to identify the player in game, For example, to identify the discord user `Xackery` as `Shin`, Create a role named `IGN: Shin`, right click the user Xackery, and assign the role to them.
 * If the above user chats inside the assigned channel, their message will appear in game as `Shin says from discord, 'Their Message Here'`
 
+### Using Users Database
+
+* When talkeq runs, a users.txt file is generated the same directory as talkeq. Peek at the file to see the layout.
+* If you write to this file, talkeq will hot reload the contents and update it's lookup table in memory for mapping users from discord to telnet (eq)
+* You can write a website to edit this file, or by hand, to update talkeq and sync your player IGN tags
