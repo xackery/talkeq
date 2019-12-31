@@ -148,5 +148,9 @@ func NewConfig(ctx context.Context) (*Config, error) {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}
 
+	if cfg.UsersDatabasePath == "" {
+		cfg.UsersDatabasePath = "./users.txt"
+	}
+
 	return &cfg, nil
 }
