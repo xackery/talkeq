@@ -362,7 +362,7 @@ func (t *Discord) handler(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	ign = t.users.Name(m.Author.ID)
 	if ign == "" {
-		t.getIGNName(s, m.Author.ID)
+		ign = t.getIGNName(s, m.Author.ID)
 		//disabled this code since it would cache results and remove dynamics
 		//if ign != "" { //update users database with newly found ign tag
 		//	t.users.Set(m.Author.ID, ign)
@@ -407,11 +407,9 @@ func sanitize(data string) string {
 }
 
 func (t *Discord) getIGNName(s *discordgo.Session, userid string) string {
-	ign := ""
-
 	member, err := s.GuildMember(t.config.ServerID, userid)
 	if err != nil {
-		log.Warn().Err(err).Str("author_id", userid).Msg("guild member lookup")
+		log.Warn().Err(err).Str("author_id", userid).Msg("getIGNName")
 		return ""
 	}
 	roles, err := s.GuildRoles(t.config.ServerID)
@@ -421,13 +419,7 @@ func (t *Discord) getIGNName(s *discordgo.Session, userid string) string {
 	}
 
 	for _, role := range member.Roles {
-		if ign != "" {
-			break
-		}
 		for _, gRole := range roles {
-			if ign != "" {
-				break
-			}
 			if strings.TrimSpace(gRole.ID) != strings.TrimSpace(role) {
 				continue
 			}
@@ -436,9 +428,9 @@ func (t *Discord) getIGNName(s *discordgo.Session, userid string) string {
 			}
 			splitStr := strings.Split(gRole.Name, "IGN:")
 			if len(splitStr) > 1 {
-				ign = strings.TrimSpace(splitStr[1])
+				return strings.TrimSpace(splitStr[1])
 			}
 		}
 	}
-	return ign
+	return ""
 }
