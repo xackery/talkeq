@@ -4,22 +4,20 @@
 
 TalkEQ bridges links between everquest and other services. Extends [DiscordEQ](https://github.com/xackery/discordeq).
 
-### Supported Services
+### Source Services
 
-* Discord
-* Telnet (eqemu server)
-* eqlog (logging via everquest's log system)
+Name|Channels
+---|---
+Telnet|ooc
+EQLog|ooc, guild, auction, general, shout
+PEQEditorSQLLog|peqeditorsqllog
 
+### Broadcast Services
 
-### Supported Channels
-
-Name|Discord|Telnet|EQLog
----|---|---|---
-OOC|Y|Y|Y
-Auction|Y|N|Y
-Shout|Y|N|Y
-Guild|Y|N|Y
-General|Y|N|Y
+Name|Channels
+---|---
+Discord|ooc, auction, general, peqeditorsqllog
+Telnet|ooc
 
 ## Linking Discord
 
