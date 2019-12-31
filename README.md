@@ -19,7 +19,17 @@ Name|Channels
 Discord|ooc, auction, general, peqeditorsqllog
 Telnet|ooc
 
-## Linking Discord
+
+### Service Descriptions
+
+* Telnet - EQEMU uses this as a way to communicate with the server
+* EQLog - Everquest's client generates a log when you type /log, and it logs data the client sees
+* PEQEditorSQLLog - EQEMU's PEQ Editor is configured to log sql events, you can relay this info to discord
+* Discord - Chat service that lets you relay information to it via bots
+
+## Discord Setup
+
+### Create a bot
 
 * Go to https://discordapp.com/developers/ and sign in
 * Click New Application the top right area
@@ -35,8 +45,7 @@ Telnet|ooc
 * Ensure the bot now appears offline on your server's general channel
 
 
-
-## Enabling Players to talk from Discord to EQ
+### Configure discord users to talk from Discord to EQ
 * (Admin-level accounts on Discord can only do the following steps.)
 * Inside discord go to Server Settings.
 * Go to Roles.
