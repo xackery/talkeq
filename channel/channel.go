@@ -16,16 +16,22 @@ const (
 	Guild = "guild"
 	// Shout channel name
 	Shout = "shout"
+	// GMSay channel name
+	GMSay = "gmsay"
+	// PEQEditorSQLLog channel name
+	PEQEditorSQLLog = "peqeditorsqllog"
 )
 
 var (
 	// https://eqemu.gitbook.io/server/categories/types/chat-channel-types
 	channels = map[string]int{
-		"ooc":     260,
-		"auction": 261,
-		"general": 291,
-		"guild":   259,
-		"shout":   262,
+		"ooc":             260,
+		"auction":         261,
+		"general":         291,
+		"guild":           259,
+		"shout":           262,
+		"gmsay":           1000,
+		"peqeditorsqllog": 1001,
 	}
 	mutex sync.RWMutex
 )

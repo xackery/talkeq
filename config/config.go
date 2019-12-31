@@ -30,20 +30,22 @@ type Config struct {
 	Discord            Discord
 	Telnet             Telnet
 	EQLog              EQLog
+	PEQEditor          PEQEditor `toml:"peq_editor"`
 }
 
 // Discord represents config settings for discord
 type Discord struct {
-	IsEnabled bool           `toml:"enabled"`
-	OOC       DiscordChannel `toml:"ooc"`
-	Auction   DiscordChannel `toml:"auction"`
-	Guild     DiscordChannel `toml:"guild"`
-	Shout     DiscordChannel `toml:"shout"`
-	General   DiscordChannel `toml:"general"`
-	Token     string         `toml:"bot_token"`
-	ServerID  string         `toml:"server_id"`
-	ClientID  string         `toml:"client_id"`
-	BotStatus string         `toml:"bot_status"`
+	IsEnabled       bool           `toml:"enabled"`
+	OOC             DiscordChannel `toml:"ooc"`
+	Auction         DiscordChannel `toml:"auction"`
+	Guild           DiscordChannel `toml:"guild"`
+	Shout           DiscordChannel `toml:"shout"`
+	General         DiscordChannel `toml:"general"`
+	PEQEditorSQLLog DiscordChannel `toml:"peq_editor_sql_log"`
+	Token           string         `toml:"bot_token"`
+	ServerID        string         `toml:"server_id"`
+	ClientID        string         `toml:"client_id"`
+	BotStatus       string         `toml:"bot_status"`
 }
 
 // DiscordChannel represents a discord channel
@@ -66,13 +68,25 @@ type Telnet struct {
 
 // EQLog represents config settings for the EQ live eqlog file
 type EQLog struct {
-	IsEnabled                   bool `toml:"enabled"`
-	Path                        string
-	IsGeneralChatAuctionEnabled bool `toml:"convert_general_auction"`
-	IsAuctionEnabled            bool `toml:"listen_auction"`
-	IsOOCEnabled                bool `toml:"listen_ooc"`
-	IsShoutEnabled              bool `toml:"listen_shout"`
-	IsGeneralEnabled            bool `toml:"listen_general"`
+	IsEnabled                   bool   `toml:"enabled"`
+	Path                        string `toml:"path"`
+	IsGeneralChatAuctionEnabled bool   `toml:"convert_general_auction"`
+	IsAuctionEnabled            bool   `toml:"listen_auction"`
+	IsOOCEnabled                bool   `toml:"listen_ooc"`
+	IsShoutEnabled              bool   `toml:"listen_shout"`
+	IsGeneralEnabled            bool   `toml:"listen_general"`
+}
+
+// PEQEditor represents config settings for the PEQ editor service
+type PEQEditor struct {
+	SQL PEQEditorSQL `toml:"sql"`
+}
+
+// PEQEditorSQL is for config settings specific to the PEQ Editor SQL service
+type PEQEditorSQL struct {
+	IsEnabled   bool   `toml:"enabled"`
+	Path        string `toml:"path"`
+	FilePattern string `toml:"file_pattern"`
 }
 
 // NewConfig creates a new configuration

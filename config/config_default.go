@@ -66,6 +66,12 @@ keep_alive_retry = "10s"
 		send_channel_id = ""
 		listen_channel_id = ""
 
+	[discord.peq_editor_sql_log]
+		# Optional. In Discord, right click a channel name and Copy ID. Paste it here.
+		# if you use the PEQ editor, and have sql log enabled, this is the channel it sends to
+		# Note: requires peq editor settings to be set
+		send_channel_id = ""
+
 [telnet]
 
 	# Enable Telnet (eqemu server owners)
@@ -99,14 +105,16 @@ keep_alive_retry = "10s"
 	# if a OOC message uses prefix WTS or WTB, convert them into auction
 	convert_ooc_auction = true
 
+
+# EQ Log is used to parse everquest client logs. Primarily for live EQ, non server owners
 [eqlog]
 
-	# Enable EQLog parsing
+	# Enable EQ client EQLog parsing
 	enabled = false
 
 	# Path to find EQ Logs. Supports both / and \\, but not single \
 	# (If you copy paste from Explorer, be sure to escape all backslashes)
-	# example: c:\\Program Files\\Everquest\\Logs)
+	# example: c:\\Program Files\\Everquest\\Logs\\eqlog_CharacterName_Server.txt
 	path = ""
 
 	# if a general chat message uses prefix WTS or WTB, convert them into auction
@@ -126,4 +134,17 @@ keep_alive_retry = "10s"
 
 	# Listen for /guild (guild messages)
 	listen_guild = true
+
+[peq_editor.sql]
+
+	# Enable PEQ Editor SQL log parsing
+	enabled = false
+
+	# SQL Directory Path to find SQL Logs
+	# default: /var/www/peq/peqphpeditor/logs
+	path = "/var/www/peq/peqphpeditor/logs"
+
+	# File Pattern of SQL Log files, only needs to be changed if you edit it to a custom value 
+	# default: sql_log_{{.MONTH}}-{{.YEAR}}.sql
+	file_pattern = "sql_log_{{.MONTH}}-{{.YEAR}}.sql"
 `

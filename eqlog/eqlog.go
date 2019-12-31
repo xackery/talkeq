@@ -100,6 +100,7 @@ func (t *EQLog) loop(ctx context.Context) {
 		Location: &tail.SeekInfo{
 			Offset: fi.Size(),
 		},
+		Logger: tail.DiscardingLogger,
 	}
 
 	tailer, err := tail.TailFile(t.config.Path, cfg)

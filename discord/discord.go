@@ -297,18 +297,31 @@ func (t *Discord) Send(ctx context.Context, source string, author string, channe
 		return nil
 	}
 
+	channels := map[string]string{
+		channel.Auction:         t.config.Auction.SendChannelID,
+		channel.OOC:             t.config.OOC.SendChannelID,
+		channel.General:         t.config.General.SendChannelID,
+		channel.PEQEditorSQLLog: t.config.PEQEditorSQLLog.SendChannelID,
+	}
+	finalMessage := fmt.Sprintf("**%s %s:** %s", author, channelName, message)
 	sendChannelID := ""
-	if channelName == channel.Auction {
-		sendChannelID = t.config.Auction.SendChannelID
-	}
-	if channelName == channel.OOC {
-		sendChannelID = t.config.OOC.SendChannelID
-	}
-	if channelName == channel.General {
-		sendChannelID = t.config.General.SendChannelID
+	for name, chanID := range channels {
+		if channelName != name {
+			continue
+		}
+		sendChannelID = chanID
+		if channelName == channel.PEQEditorSQLLog {
+			finalMessage = fmt.Sprintf("**%s:** ```sql\n%s```", "PEQ Editor SQL Log", message)
+		}
+		break
 	}
 
-	_, err := t.conn.ChannelMessageSend(sendChannelID, fmt.Sprintf("**%s %s:** %s", author, channelName, message))
+	if sendChannelID == "" {
+		log.Warn().Str("author", author).Str("channelName", channelName).Str("message", message).Msgf("unknown send channel id")
+		return nil
+	}
+
+	_, err := t.conn.ChannelMessageSend(sendChannelID, finalMessage)
 	if err != nil {
 		return errors.Wrapf(err, "send %s %s: %s", author, channelName, message)
 	}
