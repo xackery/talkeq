@@ -23,7 +23,7 @@ func main() {
 	if Version == "" {
 		Version = "1.x.x EXPERIMENTAL"
 	}
-	log.Info().Msgf("starting talkeq v%s", Version)
+	log.Info().Msgf("starting talkeq %s", Version)
 
 	err := run()
 	if err != nil {
