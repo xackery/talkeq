@@ -1,10 +1,10 @@
 # A Self-Documenting Makefile: http://marmelab.com/blog/2016/02/29/auto-documented-makefile.html
-VERSION := v0.0.16
+VERSION := v0.0.17
 NAME := talkeq
 
 .PHONY: build-all
 build-all: sanitize
-	@echo "Preparing talkeq v${VERSION}"
+	@echo "Preparing talkeq ${VERSION}"
 	@rm -rf bin/*
 	@-mkdir -p bin/
 	@echo "Building Linux"

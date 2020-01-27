@@ -197,6 +197,7 @@ func (t *Telnet) loop(ctx context.Context) {
 			if strings.Contains(msg, k) {
 				channelID = v
 				pattern = k
+				break
 			}
 		}
 
@@ -209,10 +210,24 @@ func (t *Telnet) loop(ctx context.Context) {
 		}
 
 		//prompt clearing
-		if strings.Index(msg, ">") > 0 &&
+		if strings.Contains(msg, ">") &&
 			strings.Index(msg, ">") < strings.Index(msg, " ") {
 			msg = msg[strings.Index(msg, ">")+1:]
 		}
+
+		//there's a double user> prompt issue that happens some times, this helps remedy it
+		if strings.Contains(msg, ">") &&
+			strings.Index(msg, ">") < strings.Index(msg, pattern) {
+			msg = msg[strings.Index(msg, ">")+1:]
+		}
+
+		//there's a double user> prompt issue that happens some times, this also helps remedy it
+		//removed, may be overkill
+		//for strings.Contains(msg, "\b") {
+		//	msg = msg[strings.Index(msg, "\b")+1:]
+		//}
+		//just strip any \b text
+		msg = strings.ReplaceAll(msg, "\b", "")
 
 		if msg[0:1] == "*" { //ignore echo backs
 			log.Debug().Str("msg", msg).Msg("ignored (* = echo back)")
