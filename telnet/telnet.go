@@ -39,6 +39,7 @@ func New(ctx context.Context, config config.Telnet) (*Telnet, error) {
 		config:         config,
 		cancel:         cancel,
 		isInitialState: true,
+		isNewTelnet:    true,
 	}
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -47,6 +48,9 @@ func New(ctx context.Context, config config.Telnet) (*Telnet, error) {
 
 	if !config.IsEnabled {
 		return t, nil
+	}
+	if config.IsLegacy {
+		t.isNewTelnet = false
 	}
 
 	if config.Host == "" {
@@ -101,7 +105,6 @@ func (t *Telnet) Connect(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "set write deadline")
 	}
-	t.isNewTelnet = false
 	index := 0
 	skipAuth := false
 
@@ -111,7 +114,6 @@ func (t *Telnet) Connect(ctx context.Context) error {
 	}
 	if index != 0 {
 		skipAuth = true
-		t.isNewTelnet = true
 	}
 
 	if !skipAuth {
@@ -185,10 +187,11 @@ func (t *Telnet) loop(ctx context.Context) {
 			return
 		}
 		msg = string(data)
+
 		if len(msg) < 3 { //ignore small messages
-			log.Debug().Str("msg", msg).Msg("ignored (too small)")
 			continue
 		}
+
 		channelID = 0
 		for k, v := range channels {
 			if strings.Contains(msg, k) {
@@ -197,6 +200,7 @@ func (t *Telnet) loop(ctx context.Context) {
 			}
 		}
 
+		log.Debug().Str("msg", msg).Msg("raw telnet echo")
 		t.parsePlayersOnline(msg)
 
 		if channelID == 0 {

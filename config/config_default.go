@@ -85,6 +85,10 @@ users_database = "./users.txt"
 	# Enable Telnet (eqemu server owners)
 	enabled = false
 
+	# if you are using a very old version of telnet, enable this.
+	# default: false 
+	legacy = false
+	
 	# Optional. (eqemu server owners). Specify where telnet is located. 
 	# Akka's installer by default will use 127.0.0.1:9000
 	host = "127.0.0.1:9000"
