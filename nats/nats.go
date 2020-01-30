@@ -197,13 +197,9 @@ func (t *Nats) onChannelMessage(m *nats.Msg) {
 	}
 
 	channelID, ok := channels[channelMessage.ChanNum]
-	if !ok {
-		log.Warn().Int32("ChanNum", channelMessage.ChanNum).Msg("nats unrecognized channel number, ignoring")
-		return
-	}
 
 	//check for guild chat
-	if channelMessage.Guilddbid > 0 {
+	if !ok && channelMessage.Guilddbid > 0 {
 		channelID = 259
 		optional = fmt.Sprintf("%d", channelMessage.Guilddbid)
 
@@ -214,13 +210,6 @@ func (t *Nats) onChannelMessage(m *nats.Msg) {
 		}
 	}
 
-	/* channelMessage.Message = convertLinks(config.Discord.ItemUrl, channelMessage.Message)
-	if _, err = disco.SendMessage(channelID, fmt.Sprintf("**%s %s** %s", channelMessage.From, chanType, channelMessage.Message)); err != nil {
-		log.Printf("[NATS] Error sending message (%s: %s) %s", channelMessage.From, channelMessage.Message, err.Error())
-		return
-	} */
-
-	//log.Printf("[NATS] %d %s: %s\n", channelMessage.ChanNum, channelMessage.From, channelMessage.Message)
 	for _, s := range t.subscribers {
 		s("nats", author, channelID, msg, optional)
 	}

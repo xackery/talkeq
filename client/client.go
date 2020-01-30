@@ -268,21 +268,41 @@ func (c *Client) onMessage(source string, author string, channelID int, message 
 		}
 		log.Info().Msgf("[%s->%s] %s %s: %s", source, endpoints, author, channel.ToString(channelID), message)
 	case "discord":
+		isSent := false
 		if !c.config.Telnet.IsEnabled {
+			err = c.telnet.Send(context.Background(), source, author, channelID, message, "")
+			if err != nil {
+				log.Warn().Err(err).Msg("telnet send")
+			} else {
+				if endpoints == "none" {
+					endpoints = "telnet"
+				} else {
+					endpoints += ",telnet"
+				}
+			}
+			isSent = true
+		}
+		if !c.config.Nats.IsEnabled {
+			err = c.nats.Send(context.Background(), source, author, channelID, message, "")
+			if err != nil {
+				log.Warn().Err(err).Msg("nats send")
+			} else {
+				if endpoints == "none" {
+					endpoints = "nats"
+				} else {
+					endpoints += ",nats"
+				}
+			}
+
+			isSent = true
+		}
+
+		if !isSent {
 			log.Info().Msgf("[%s->none] %s %s: %s", source, author, channel.ToString(channelID), message)
 			return
 		}
-		err = c.telnet.Send(context.Background(), source, author, channelID, message, "")
-		if err != nil {
-			log.Warn().Err(err).Msg("telnet send")
-		} else {
-			if endpoints == "none" {
-				endpoints = "telnet"
-			} else {
-				endpoints += ",telnet"
-			}
-		}
 		log.Info().Msgf("[%s->%s] %s %s: %s", source, endpoints, author, channel.ToString(channelID), message)
+
 	case "eqlog":
 		if !c.config.Discord.IsEnabled {
 			log.Info().Msgf("[%s->none] %s %s: %s", source, author, channel.ToString(channelID), message)
