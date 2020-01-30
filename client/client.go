@@ -224,7 +224,7 @@ func (c *Client) onMessage(source string, author string, channelID int, message 
 			log.Info().Msgf("[%s->none] %s %s: %s", source, author, channel.ToString(channelID), message)
 			return
 		}
-		err = c.discord.Send(context.Background(), source, author, channelID, message, "")
+		err = c.discord.Send(context.Background(), source, author, channelID, message, optional)
 		if err != nil {
 			log.Warn().Err(err).Msg("discord send")
 		} else {
@@ -240,7 +240,7 @@ func (c *Client) onMessage(source string, author string, channelID int, message 
 			log.Info().Msgf("[%s->none] %s %s: %s", source, author, channel.ToString(channelID), message)
 			return
 		}
-		err = c.discord.Send(context.Background(), source, author, channelID, message, "")
+		err = c.discord.Send(context.Background(), source, author, channelID, message, optional)
 		if err != nil {
 			log.Warn().Err(err).Msg("discord send")
 		} else {
@@ -256,7 +256,7 @@ func (c *Client) onMessage(source string, author string, channelID int, message 
 			log.Info().Msgf("[%s->none] %s %s: %s", source, author, channel.ToString(channelID), message)
 			return
 		}
-		err = c.discord.Send(context.Background(), source, author, channelID, message, "")
+		err = c.discord.Send(context.Background(), source, author, channelID, message, optional)
 		if err != nil {
 			log.Warn().Err(err).Msg("discord send")
 		} else {
@@ -270,7 +270,7 @@ func (c *Client) onMessage(source string, author string, channelID int, message 
 	case "discord":
 		isSent := false
 		if c.config.Telnet.IsEnabled {
-			err = c.telnet.Send(context.Background(), source, author, channelID, message, "")
+			err = c.telnet.Send(context.Background(), source, author, channelID, message, optional)
 			if err != nil {
 				log.Warn().Err(err).Msg("telnet send")
 			} else {
@@ -283,7 +283,7 @@ func (c *Client) onMessage(source string, author string, channelID int, message 
 			isSent = true
 		}
 		if c.config.Nats.IsEnabled {
-			err = c.nats.Send(context.Background(), source, author, channelID, message, "")
+			err = c.nats.Send(context.Background(), source, author, channelID, message, optional)
 			if err != nil {
 				log.Warn().Err(err).Msg("nats send")
 			} else {
@@ -308,7 +308,7 @@ func (c *Client) onMessage(source string, author string, channelID int, message 
 			log.Info().Msgf("[%s->none] %s %s: %s", source, author, channel.ToString(channelID), message)
 			return
 		}
-		err = c.discord.Send(context.Background(), source, author, channelID, message, "")
+		err = c.discord.Send(context.Background(), source, author, channelID, message, optional)
 		if err != nil {
 			log.Warn().Err(err).Msg("discord send")
 		} else {
