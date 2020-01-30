@@ -269,7 +269,7 @@ func (c *Client) onMessage(source string, author string, channelID int, message 
 		log.Info().Msgf("[%s->%s] %s %s: %s", source, endpoints, author, channel.ToString(channelID), message)
 	case "discord":
 		isSent := false
-		if !c.config.Telnet.IsEnabled {
+		if c.config.Telnet.IsEnabled {
 			err = c.telnet.Send(context.Background(), source, author, channelID, message, "")
 			if err != nil {
 				log.Warn().Err(err).Msg("telnet send")
@@ -282,7 +282,7 @@ func (c *Client) onMessage(source string, author string, channelID int, message 
 			}
 			isSent = true
 		}
-		if !c.config.Nats.IsEnabled {
+		if c.config.Nats.IsEnabled {
 			err = c.nats.Send(context.Background(), source, author, channelID, message, "")
 			if err != nil {
 				log.Warn().Err(err).Msg("nats send")

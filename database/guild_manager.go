@@ -98,7 +98,7 @@ func (u *GuildManager) reloadDatabase() error {
 			continue
 		}
 		sid := line[0:p]
-		if len(sid) < 3 {
+		if len(sid) < 1 {
 			log.Warn().Int("line number", lineNumber).Msgf("%s guildid too short", u.guildsDatabasePath)
 			continue
 		}
