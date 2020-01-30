@@ -143,7 +143,7 @@ func (t *Nats) Send(ctx context.Context, source string, author string, channelID
 	if err != nil {
 		return errors.Wrap(err, "marshal")
 	}
-	err = t.conn.Publish("ChannelMessageWorld", msg)
+	err = t.conn.Publish("world.channel_message.in", msg)
 	if err != nil {
 		return errors.Wrap(err, "publish")
 	}
