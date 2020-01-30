@@ -210,6 +210,11 @@ func (t *Nats) onChannelMessage(m *nats.Msg) {
 		}
 	}
 
+	if channelID == 0 {
+		log.Warn().Int32("ChanNum", channelMessage.ChanNum).Msg("nats unrecognized channel number, ignoring")
+		return
+	}
+
 	for _, s := range t.subscribers {
 		s("nats", author, channelID, msg, optional)
 	}
