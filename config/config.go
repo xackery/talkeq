@@ -31,7 +31,9 @@ type Config struct {
 	Telnet             Telnet
 	EQLog              EQLog
 	PEQEditor          PEQEditor `toml:"peq_editor"`
-	UsersDatabasePath  string    `toml:"users_database"`
+	Nats               Nats
+	UsersDatabasePath  string `toml:"users_database"`
+	GuildsDatabasePath string `toml:"guilds_database"`
 }
 
 // Discord represents config settings for discord
@@ -66,6 +68,14 @@ type Telnet struct {
 	IsServerAnnounceEnabled bool     `toml:"announce_server_status"`
 	MessageDeadline         duration `toml:"message_deadline"`
 	IsOOCAuctionEnabled     bool     `toml:"convert_ooc_auction"`
+}
+
+// Nats represents config settings for NATS
+type Nats struct {
+	IsEnabled           bool `toml:"enabled"`
+	Host                string
+	IsOOCAuctionEnabled bool   `toml:"convert_ooc_auction"`
+	ItemURL             string `toml:"item_url"`
 }
 
 // EQLog represents config settings for the EQ live eqlog file
@@ -151,6 +161,10 @@ func NewConfig(ctx context.Context) (*Config, error) {
 
 	if cfg.UsersDatabasePath == "" {
 		cfg.UsersDatabasePath = "./users.txt"
+	}
+
+	if cfg.GuildsDatabasePath == "" {
+		cfg.GuildsDatabasePath = "./guilds.txt"
 	}
 
 	return &cfg, nil

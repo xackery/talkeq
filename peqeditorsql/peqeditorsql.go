@@ -27,7 +27,7 @@ type PEQEditorSQL struct {
 	isConnected       bool
 	mutex             sync.RWMutex
 	config            config.PEQEditorSQL
-	subscribers       []func(string, string, int, string)
+	subscribers       []func(string, string, int, string, string)
 	isNewPEQEditorSQL bool
 }
 
@@ -156,7 +156,7 @@ func (t *PEQEditorSQL) loop(ctx context.Context) {
 		}
 
 		for _, s := range t.subscribers {
-			s(source, author, channelID, message)
+			s(source, author, channelID, message, "")
 		}
 	}
 }
@@ -182,12 +182,12 @@ func (t *PEQEditorSQL) Disconnect(ctx context.Context) error {
 }
 
 // Send attempts to send a message through PEQEditorSQL.
-func (t *PEQEditorSQL) Send(ctx context.Context, source string, author string, channelID int, message string) error {
+func (t *PEQEditorSQL) Send(ctx context.Context, source string, author string, channelID int, message string, optional string) error {
 	return fmt.Errorf("not supported")
 }
 
 // Subscribe listens for new events on peqeditorsql
-func (t *PEQEditorSQL) Subscribe(ctx context.Context, onMessage func(source string, author string, channelID int, message string)) error {
+func (t *PEQEditorSQL) Subscribe(ctx context.Context, onMessage func(source string, author string, channelID int, message string, optional string)) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	t.subscribers = append(t.subscribers, onMessage)

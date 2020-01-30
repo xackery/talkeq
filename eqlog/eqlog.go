@@ -24,7 +24,7 @@ type EQLog struct {
 	isConnected bool
 	mutex       sync.RWMutex
 	config      config.EQLog
-	subscribers []func(string, string, int, string)
+	subscribers []func(string, string, int, string, string)
 	isNewEQLog  bool
 }
 
@@ -137,7 +137,7 @@ func (t *EQLog) loop(ctx context.Context) {
 		}
 
 		for _, s := range t.subscribers {
-			s(source, author, channelID, message)
+			s(source, author, channelID, message, "")
 		}
 	}
 }
@@ -219,12 +219,12 @@ func (t *EQLog) Disconnect(ctx context.Context) error {
 }
 
 // Send attempts to send a message through EQLog.
-func (t *EQLog) Send(ctx context.Context, source string, author string, channelID int, message string) error {
+func (t *EQLog) Send(ctx context.Context, source string, author string, channelID int, message string, optional string) error {
 	return fmt.Errorf("not supported")
 }
 
 // Subscribe listens for new events on eqlog
-func (t *EQLog) Subscribe(ctx context.Context, onMessage func(source string, author string, channelID int, message string)) error {
+func (t *EQLog) Subscribe(ctx context.Context, onMessage func(source string, author string, channelID int, message string, optional string)) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	t.subscribers = append(t.subscribers, onMessage)

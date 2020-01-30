@@ -15,13 +15,18 @@ keep_alive = true
 # default: 10s
 keep_alive_retry = "10s"
 
-# Users by IDs are mapped to their display names via the raw text file called users database
+# Users by ID are mapped to their display names via the raw text file called users database
 # If users database file does not exist, a new one is created
-# This file is actively monitored. if you edit it while talkeq is running, it will reload the changes
+# This file is actively monitored. if you edit it while talkeq is running, it will reload the changes instantly
 # This file overrides the IGN: playerName role tags in discord
 # If a user is found on this list, it will fall back to check for IGN tags
-# If you do an API registration, it will update the users database
 users_database = "./users.txt"
+
+# ** Only supported by NATS **
+# Guilds by ID are mapped to their database ID via the raw text file called guilds database
+# If guilds database file does not exist, and NATS is enabled, a new one is created
+# This file is actively monitored. if you edit it while talkeq is running, it will reload the changes instantly
+guilds_database = "./guilds.txt"
 
 [discord]
 
@@ -147,6 +152,26 @@ users_database = "./users.txt"
 	# Listen for /guild (guild messages)
 	listen_guild = true
 
+
+# NATS is a custom alternative to telnet 
+# that a very limited number of eqemu
+# servers utilize. Chances are, you can ignore.
+[nats]
+
+	# Enable NATS (eqemu server owners)
+	enabled = false
+	
+	# Specify where NATS is located. 
+	# default 127.0.0.1:4222
+	host = "127.0.0.1:4222"
+
+	# if a OOC message uses prefix WTS or WTB, convert them into auction
+	convert_ooc_auction = true
+
+	# Optional. Converts item URLs to provided field. defaults to allakhazam. To disable, change to ""
+	# default: "http://everquest.allakhazam.com/db/item.html?item="
+	item_url = "http://everquest.allakhazam.com/db/item.html?item="
+	
 [peq_editor.sql]
 
 	# Enable PEQ Editor SQL log parsing

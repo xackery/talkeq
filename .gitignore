@@ -1,5 +1,7 @@
 talkeq.conf
 users.txt
+guilds.txt
+*.sql
 
 bin/
 vendor/*/

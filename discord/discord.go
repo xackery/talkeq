@@ -7,6 +7,7 @@ import (
 	"os"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"text/template"
@@ -28,13 +29,14 @@ type Discord struct {
 	mutex       sync.RWMutex
 	config      config.Discord
 	conn        *discordgo.Session
-	subscribers []func(string, string, int, string)
+	subscribers []func(string, string, int, string, string)
 	id          string
 	users       *database.UserManager
+	guilds      *database.GuildManager
 }
 
 // New creates a new discord connect
-func New(ctx context.Context, config config.Discord, userManager *database.UserManager) (*Discord, error) {
+func New(ctx context.Context, config config.Discord, userManager *database.UserManager, guildManager *database.GuildManager) (*Discord, error) {
 	ctx, cancel := context.WithCancel(ctx)
 
 	t := &Discord{
@@ -42,6 +44,7 @@ func New(ctx context.Context, config config.Discord, userManager *database.UserM
 		cancel: cancel,
 		config: config,
 		users:  userManager,
+		guilds: guildManager,
 	}
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -281,7 +284,7 @@ func (t *Discord) Disconnect(ctx context.Context) error {
 }
 
 // Send attempts to send a message through Discord.
-func (t *Discord) Send(ctx context.Context, source string, author string, channelID int, message string) error {
+func (t *Discord) Send(ctx context.Context, source string, author string, channelID int, message string, optional string) error {
 	channelName := channel.ToString(channelID)
 	if channelName == "" {
 		return fmt.Errorf("invalid channelID: %d", channelID)
@@ -304,6 +307,7 @@ func (t *Discord) Send(ctx context.Context, source string, author string, channe
 		channel.OOC:             t.config.OOC.SendChannelID,
 		channel.General:         t.config.General.SendChannelID,
 		channel.PEQEditorSQLLog: t.config.PEQEditorSQLLog.SendChannelID,
+		channel.Guild:           "",
 	}
 	finalMessage := fmt.Sprintf("**%s %s:** %s", author, channelName, message)
 	sendChannelID := ""
@@ -311,9 +315,22 @@ func (t *Discord) Send(ctx context.Context, source string, author string, channe
 		if channelName != name {
 			continue
 		}
+
 		sendChannelID = chanID
 		if channelName == channel.PEQEditorSQLLog {
 			finalMessage = fmt.Sprintf("**%s:** ```sql\n%s```", "PEQ Editor SQL Log", message)
+		}
+
+		if channelName == channel.Guild {
+			guildID, err := strconv.Atoi(optional)
+			if err != nil {
+				return errors.Wrapf(err, "send guildID %s %s %s: %s", optional, author, channelName, message)
+			}
+
+			sendChannelID = t.guilds.ChannelID(guildID)
+			if len(sendChannelID) == 0 {
+				return fmt.Errorf("channelID lookup not found for guildID %s %s %s: %s", optional, author, channelName, message)
+			}
 		}
 		break
 	}
@@ -333,7 +350,7 @@ func (t *Discord) Send(ctx context.Context, source string, author string, channe
 }
 
 // Subscribe listens for new events on discord
-func (t *Discord) Subscribe(ctx context.Context, onMessage func(source string, author string, channelID int, message string)) error {
+func (t *Discord) Subscribe(ctx context.Context, onMessage func(source string, author string, channelID int, message string, optional string)) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	t.subscribers = append(t.subscribers, onMessage)
@@ -395,7 +412,7 @@ func (t *Discord) handler(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	for _, s := range t.subscribers {
-		s("discord", ign, channelID, msg)
+		s("discord", ign, channelID, msg, "")
 	}
 }
 

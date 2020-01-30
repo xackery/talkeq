@@ -14,6 +14,7 @@ import (
 	"github.com/xackery/talkeq/database"
 	"github.com/xackery/talkeq/discord"
 	"github.com/xackery/talkeq/eqlog"
+	"github.com/xackery/talkeq/nats"
 	"github.com/xackery/talkeq/peqeditorsql"
 	"github.com/xackery/talkeq/telnet"
 )
@@ -26,6 +27,7 @@ type Client struct {
 	discord      *discord.Discord
 	telnet       *telnet.Telnet
 	eqlog        *eqlog.EQLog
+	nats         *nats.Nats
 	peqeditorsql *peqeditorsql.PEQEditorSQL
 }
 
@@ -54,7 +56,13 @@ func New(ctx context.Context) (*Client, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "usermanager")
 	}
-	c.discord, err = discord.New(ctx, c.config.Discord, userManager)
+
+	guildManager, err := database.NewGuildManager(ctx, c.config)
+	if err != nil {
+		return nil, errors.Wrap(err, "guildmanager")
+	}
+
+	c.discord, err = discord.New(ctx, c.config.Discord, userManager, guildManager)
 	if err != nil {
 		return nil, errors.Wrap(err, "discord")
 	}
@@ -93,6 +101,16 @@ func New(ctx context.Context) (*Client, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "peqeditorsql subscribe")
 	}
+
+	c.nats, err = nats.New(ctx, c.config.Nats, guildManager)
+	if err != nil {
+		return nil, errors.Wrap(err, "nats")
+	}
+
+	err = c.nats.Subscribe(ctx, c.onMessage)
+	if err != nil {
+		return nil, errors.Wrap(err, "nats subscribe")
+	}
 	return &c, nil
 }
 
@@ -128,6 +146,14 @@ func (c *Client) Connect(ctx context.Context) error {
 			return errors.Wrap(err, "peqeditorsql connect")
 		}
 		log.Warn().Err(err).Msg("peqeditorsql connect")
+	}
+
+	err = c.nats.Connect(ctx)
+	if err != nil {
+		if !c.config.IsKeepAliveEnabled {
+			return errors.Wrap(err, "nats connect")
+		}
+		log.Warn().Err(err).Msg("nats connect")
 	}
 
 	go c.loop(ctx)
@@ -189,7 +215,7 @@ func (c *Client) loop(ctx context.Context) {
 	}
 }
 
-func (c *Client) onMessage(source string, author string, channelID int, message string) {
+func (c *Client) onMessage(source string, author string, channelID int, message string, optional string) {
 	var err error
 	endpoints := "none"
 	switch source {
@@ -198,7 +224,7 @@ func (c *Client) onMessage(source string, author string, channelID int, message 
 			log.Info().Msgf("[%s->none] %s %s: %s", source, author, channel.ToString(channelID), message)
 			return
 		}
-		err = c.discord.Send(context.Background(), source, author, channelID, message)
+		err = c.discord.Send(context.Background(), source, author, channelID, message, "")
 		if err != nil {
 			log.Warn().Err(err).Msg("discord send")
 		} else {
@@ -214,7 +240,23 @@ func (c *Client) onMessage(source string, author string, channelID int, message 
 			log.Info().Msgf("[%s->none] %s %s: %s", source, author, channel.ToString(channelID), message)
 			return
 		}
-		err = c.discord.Send(context.Background(), source, author, channelID, message)
+		err = c.discord.Send(context.Background(), source, author, channelID, message, "")
+		if err != nil {
+			log.Warn().Err(err).Msg("discord send")
+		} else {
+			if endpoints == "none" {
+				endpoints = "discord"
+			} else {
+				endpoints += ",discord"
+			}
+		}
+		log.Info().Msgf("[%s->%s] %s %s: %s", source, endpoints, author, channel.ToString(channelID), message)
+	case "nats":
+		if !c.config.Discord.IsEnabled {
+			log.Info().Msgf("[%s->none] %s %s: %s", source, author, channel.ToString(channelID), message)
+			return
+		}
+		err = c.discord.Send(context.Background(), source, author, channelID, message, "")
 		if err != nil {
 			log.Warn().Err(err).Msg("discord send")
 		} else {
@@ -230,7 +272,7 @@ func (c *Client) onMessage(source string, author string, channelID int, message 
 			log.Info().Msgf("[%s->none] %s %s: %s", source, author, channel.ToString(channelID), message)
 			return
 		}
-		err = c.telnet.Send(context.Background(), source, author, channelID, message)
+		err = c.telnet.Send(context.Background(), source, author, channelID, message, "")
 		if err != nil {
 			log.Warn().Err(err).Msg("telnet send")
 		} else {
@@ -246,7 +288,7 @@ func (c *Client) onMessage(source string, author string, channelID int, message 
 			log.Info().Msgf("[%s->none] %s %s: %s", source, author, channel.ToString(channelID), message)
 			return
 		}
-		err = c.discord.Send(context.Background(), source, author, channelID, message)
+		err = c.discord.Send(context.Background(), source, author, channelID, message, "")
 		if err != nil {
 			log.Warn().Err(err).Msg("discord send")
 		} else {

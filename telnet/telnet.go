@@ -25,7 +25,7 @@ type Telnet struct {
 	mutex          sync.RWMutex
 	config         config.Telnet
 	conn           *telnet.Conn
-	subscribers    []func(string, string, int, string)
+	subscribers    []func(string, string, int, string, string)
 	isNewTelnet    bool
 	isInitialState bool
 	online         int
@@ -153,7 +153,7 @@ func (t *Telnet) Connect(ctx context.Context) error {
 	t.isConnected = true
 	if !isInitialState && t.config.IsServerAnnounceEnabled && len(t.subscribers) > 0 {
 		for _, s := range t.subscribers {
-			s("telnet", "Admin", channel.ToInt(channel.OOC), "Server is now UP")
+			s("telnet", "Admin", channel.ToInt(channel.OOC), "Server is now UP", "")
 		}
 	}
 	return nil
@@ -274,7 +274,7 @@ func (t *Telnet) loop(ctx context.Context) {
 		}
 
 		for _, s := range t.subscribers {
-			s("telnet", author, channelID, msg)
+			s("telnet", author, channelID, msg, "")
 		}
 		t.mutex.RUnlock()
 	}
@@ -313,14 +313,14 @@ func (t *Telnet) Disconnect(ctx context.Context) error {
 	t.isConnected = false
 	if !t.isInitialState && t.config.IsServerAnnounceEnabled && len(t.subscribers) > 0 {
 		for _, s := range t.subscribers {
-			s("telnet", "Admin", channel.ToInt(channel.OOC), "Server is now DOWN")
+			s("telnet", "Admin", channel.ToInt(channel.OOC), "Server is now DOWN", "")
 		}
 	}
 	return nil
 }
 
 // Send attempts to send a message through Telnet.
-func (t *Telnet) Send(ctx context.Context, source string, author string, channelID int, message string) error {
+func (t *Telnet) Send(ctx context.Context, source string, author string, channelID int, message string, optional string) error {
 	channelName := channel.ToString(channelID)
 	if channelName == "" {
 		return fmt.Errorf("invalid channelID: %d", channelID)
@@ -350,7 +350,7 @@ func (t *Telnet) Send(ctx context.Context, source string, author string, channel
 }
 
 // Subscribe listens for new events on telnet
-func (t *Telnet) Subscribe(ctx context.Context, onMessage func(source string, author string, channelID int, message string)) error {
+func (t *Telnet) Subscribe(ctx context.Context, onMessage func(source string, author string, channelID int, message string, optional string)) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	t.subscribers = append(t.subscribers, onMessage)
