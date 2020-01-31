@@ -16,8 +16,8 @@ const (
 	Guild = "guild"
 	// Shout channel name
 	Shout = "shout"
-	// GMSay channel name
-	GMSay = "gmsay"
+	// Admin channel name
+	Admin = "admin"
 	// PEQEditorSQLLog channel name
 	PEQEditorSQLLog = "peqeditorsqllog"
 )
@@ -30,7 +30,7 @@ var (
 		"general":         291,
 		"guild":           259,
 		"shout":           262,
-		"gmsay":           1000,
+		"admin":           1000,
 		"peqeditorsqllog": 1001,
 	}
 	mutex sync.RWMutex

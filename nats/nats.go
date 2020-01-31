@@ -250,13 +250,12 @@ func (t *Nats) onAdminMessage(m *nats.Msg) {
 		log.Warn().Err(err).Msg("nats failed to unmarshal admin message")
 		return
 	}
+	optional := ""
 
-	/*	if _, err = disco.SendMessage(config.Discord.CommandChannelID, fmt.Sprintf("**Admin:** %s", channelMessage.Message)); err != nil {
-			log.Printf("[NATS] Error sending admin message (%s) %s", channelMessage.Message, err.Error())
-			return
-		}
-
-		log.Printf("[NATS] AdminMessage: %s\n", channelMessage.Message)*/
+	channelID := channel.ToInt(channel.Admin)
+	for _, s := range t.subscribers {
+		s("nats", "", channelID, channelMessage.Message, optional)
+	}
 }
 
 func (t *Nats) convertLinks(message string) string {

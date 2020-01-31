@@ -307,6 +307,7 @@ func (t *Discord) Send(ctx context.Context, source string, author string, channe
 		channel.OOC:             t.config.OOC.SendChannelID,
 		channel.General:         t.config.General.SendChannelID,
 		channel.PEQEditorSQLLog: t.config.PEQEditorSQLLog.SendChannelID,
+		channel.Admin:           t.config.Admin.SendChannelID,
 		channel.Guild:           "",
 	}
 	finalMessage := fmt.Sprintf("**%s %s:** %s", author, channelName, message)

@@ -79,6 +79,13 @@ guilds_database = "./guilds.txt"
 		send_channel_id = ""
 		listen_channel_id = ""
 
+	[discord.admin]
+		# Optional. In Discord, right click a channel name and Copy ID. Paste it here.
+		# admin messages will appear on this discord channel
+		# Note: not supported with telnet (eqemu) at this time
+		send_channel_id = ""
+		listen_channel_id = ""
+
 	[discord.peq_editor_sql_log]
 		# Optional. In Discord, right click a channel name and Copy ID. Paste it here.
 		# if you use the PEQ editor, and have sql log enabled, this is the channel it sends to

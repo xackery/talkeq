@@ -44,6 +44,7 @@ type Discord struct {
 	Guild           DiscordChannel `toml:"guild"`
 	Shout           DiscordChannel `toml:"shout"`
 	General         DiscordChannel `toml:"general"`
+	Admin           DiscordChannel `toml:"admin"`
 	PEQEditorSQLLog DiscordChannel `toml:"peq_editor_sql_log"`
 	Token           string         `toml:"bot_token"`
 	ServerID        string         `toml:"server_id"`
