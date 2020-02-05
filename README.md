@@ -60,3 +60,85 @@ Telnet|ooc
 * When talkeq runs, a users.txt file is generated the same directory as talkeq. Peek at the file to see the layout.
 * If you write to this file, talkeq will hot reload the contents and update it's lookup table in memory for mapping users from discord to telnet (eq)
 * You can write a website to edit this file, or by hand, to update talkeq and sync your player IGN tags
+
+
+
+/etc/init.d/talkeq
+change APPDIR/APPBIN, user, and group to your set options
+```sh
+!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:          talkeqdaemon
+# Required-Start:    $local_fs $network $syslog
+# Required-Stop:     $local_fs $network $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: TalkEQ
+# Description:       TalkEQ start-stop-daemon - Debian
+### END INIT INFO
+
+NAME="talkeq"
+PATH="/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin"
+APPDIR="/home/eqemu/talkeq/"
+APPBIN="/home/eqemu/talkeq/talkeq"
+APPARGS=""
+USER="eqemu"
+GROUP="eqemu"
+
+# Include functions
+set -e
+. /lib/lsb/init-functions
+
+start() {
+  printf "Starting '$NAME'... "
+  start-stop-daemon --start --chuid "$USER:$GROUP" --background --make-pidfile --pidfile /var/run/$NAME.pid --chdir "$APPDIR" --startas /bin/bash -- -c "exec $APPBIN > /var/log/talkeq.log 2>&1"
+  printf "done\n"
+}
+#We need this function to ensure the whole process tree will be killed
+killtree() {
+    local _pid=$1
+    local _sig=${2-TERM}
+    for _child in $(ps -o pid --no-headers --ppid ${_pid}); do
+        killtree ${_child} ${_sig}
+    done
+    kill -${_sig} ${_pid}
+}
+
+stop() {
+  printf "Stopping '$NAME'... "
+  [ -z `cat /var/run/$NAME.pid 2>/dev/null` ] || \
+  while test -d /proc/$(cat /var/run/$NAME.pid); do
+    killtree $(cat /var/run/$NAME.pid) 15
+    sleep 0.5
+  done
+  [ -z `cat /var/run/$NAME.pid 2>/dev/null` ] || rm /var/run/$NAME.pid
+  printf "done\n"
+}
+
+status() {
+  status_of_proc -p /var/run/$NAME.pid "" $NAME && exit 0 || exit $?
+}
+
+case "$1" in
+  start)
+    start
+    ;;
+  stop)
+    stop
+    ;;
+  restart)
+    stop
+    start
+    ;;
+  status)
+    status
+    ;;
+  *)
+    echo "Usage: $NAME {start|stop|restart|status}" >&2
+    exit 1
+    ;;
+esac
+
+exit 0
+```
