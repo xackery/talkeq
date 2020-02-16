@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"fmt"
+	"html/template"
 	"os"
 	"runtime"
 	"time"
@@ -32,8 +33,9 @@ type Config struct {
 	EQLog              EQLog
 	PEQEditor          PEQEditor `toml:"peq_editor"`
 	Nats               Nats
-	UsersDatabasePath  string `toml:"users_database"`
-	GuildsDatabasePath string `toml:"guilds_database"`
+	SQLReport          SQLReport `toml:"sql_report"`
+	UsersDatabasePath  string    `toml:"users_database"`
+	GuildsDatabasePath string    `toml:"guilds_database"`
 }
 
 // Discord represents config settings for discord
@@ -102,6 +104,28 @@ type PEQEditorSQL struct {
 	FilePattern string `toml:"file_pattern"`
 }
 
+// SQLReport is used for reporting SQL data to discord
+type SQLReport struct {
+	IsEnabled bool `toml:"enabled"`
+	Host      string
+	Username  string
+	Password  string
+	Database  string
+	Entries   []*SQLReportEntries `toml:"entries"`
+}
+
+//SQLReportEntries is used for entries in a sql report
+type SQLReportEntries struct {
+	ChannelID       string `toml:"channel_id"`
+	Query           string
+	Pattern         string
+	PatternTemplate *template.Template
+	Refresh         string
+	RefreshDuration time.Duration
+	// Last time a report was successfully sent
+	NextReport time.Time
+}
+
 // NewConfig creates a new configuration
 func NewConfig(ctx context.Context) (*Config, error) {
 	var f *os.File
@@ -153,6 +177,24 @@ func NewConfig(ctx context.Context) (*Config, error) {
 	_, err = toml.DecodeReader(f, &cfg)
 	if err != nil {
 		return nil, errors.Wrap(err, "decode talkeq.conf")
+	}
+
+	if cfg.SQLReport.IsEnabled {
+		for _, e := range cfg.SQLReport.Entries {
+
+			e.RefreshDuration, err = time.ParseDuration(e.Refresh)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to parse duration %s for sqlreport pattern %s", e.Refresh, e.Pattern)
+			}
+			if e.RefreshDuration < 30*time.Second {
+				return nil, fmt.Errorf("duration %s is lower than 30s for sqlreport pattern %s", e.Refresh, e.Pattern)
+			}
+
+			if e.PatternTemplate, err = template.New("pattern").Parse(e.Pattern); err != nil {
+				return nil, errors.Wrapf(err, "failed to parse pattern %s for sqlreport", e.Pattern)
+			}
+			e.NextReport = time.Now()
+		}
 	}
 
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)

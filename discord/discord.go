@@ -424,6 +424,17 @@ func sanitize(data string) string {
 	return data
 }
 
+// SetChannelName is used for voice channel setting via SQLReport
+func (t *Discord) SetChannelName(channelID string, name string) error {
+	if !t.isConnected {
+		return fmt.Errorf("discord not connected")
+	}
+	if _, err := t.conn.ChannelEdit(channelID, name); err != nil {
+		return errors.Wrap(err, "edit channel failed")
+	}
+	return nil
+}
+
 func (t *Discord) getIGNName(s *discordgo.Session, userid string) string {
 	member, err := s.GuildMember(t.config.ServerID, userid)
 	if err != nil {

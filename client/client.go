@@ -16,6 +16,7 @@ import (
 	"github.com/xackery/talkeq/eqlog"
 	"github.com/xackery/talkeq/nats"
 	"github.com/xackery/talkeq/peqeditorsql"
+	"github.com/xackery/talkeq/sqlreport"
 	"github.com/xackery/talkeq/telnet"
 )
 
@@ -28,6 +29,7 @@ type Client struct {
 	telnet       *telnet.Telnet
 	eqlog        *eqlog.EQLog
 	nats         *nats.Nats
+	sqlreport    *sqlreport.SQLReport
 	peqeditorsql *peqeditorsql.PEQEditorSQL
 }
 
@@ -75,6 +77,11 @@ func New(ctx context.Context) (*Client, error) {
 	c.telnet, err = telnet.New(ctx, c.config.Telnet)
 	if err != nil {
 		return nil, errors.Wrap(err, "telnet")
+	}
+
+	c.sqlreport, err = sqlreport.New(ctx, c.config.SQLReport, c.discord)
+	if err != nil {
+		return nil, errors.Wrap(err, "sqlreport")
 	}
 
 	err = c.telnet.Subscribe(ctx, c.onMessage)
@@ -130,6 +137,14 @@ func (c *Client) Connect(ctx context.Context) error {
 			return errors.Wrap(err, "telnet connect")
 		}
 		log.Warn().Err(err).Msg("telnet connect")
+	}
+
+	err = c.sqlreport.Connect(ctx)
+	if err != nil {
+		if !c.config.IsKeepAliveEnabled {
+			return errors.Wrap(err, "sqlreport connect")
+		}
+		log.Warn().Err(err).Msg("sqlreport connect")
 	}
 
 	err = c.eqlog.Connect(ctx)
@@ -210,6 +225,13 @@ func (c *Client) loop(ctx context.Context) {
 			err = c.telnet.Connect(ctx)
 			if err != nil {
 				log.Warn().Err(err).Msg("telnet connect")
+			}
+		}
+		if c.config.SQLReport.IsEnabled && !c.sqlreport.IsConnected() {
+			log.Info().Msg("attempting to reconnect to sqlreport")
+			err = c.sqlreport.Connect(ctx)
+			if err != nil {
+				log.Warn().Err(err).Msg("sqlreport connect")
 			}
 		}
 	}

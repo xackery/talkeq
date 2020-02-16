@@ -129,7 +129,6 @@ guilds_database = "./guilds.txt"
 	# if a OOC message uses prefix WTS or WTB, convert them into auction
 	convert_ooc_auction = true
 
-
 # EQ Log is used to parse everquest client logs. Primarily for live EQ, non server owners
 [eqlog]
 
@@ -191,4 +190,60 @@ guilds_database = "./guilds.txt"
 	# File Pattern of SQL Log files, only needs to be changed if you edit it to a custom value 
 	# default: sql_log_{{.Month}}-{{.Year}}.sql
 	file_pattern = "sql_log_{{.Month}}-{{.Year}}.sql"
+
+# SQL Report can be used to show stats on discord
+# An ideal way to set this up is create a private voice channel
+# Then bind it to various queries
+
+[sql_report]
+	# Enable SQL Reporting
+	enabled = false
+
+	# host for database
+	# default: 127.0.0.1:3306
+	host = 127.0.01:3306
+
+	# username to connect to database with.
+	# default: eqemu
+	username = "eqemu"
+
+	# password to connect to database with.
+	# default: eqemupass
+	password = "eqemupass"
+
+	# database to connect to
+	# default: eqemu
+	database = "eqemu"
+	
+[[sql_report.entries]]
+	# Voice channel id to show the results on
+	channel_id = "676282331627257856"
+
+	# SQL Query to run
+	query = "SELECT count(id) FROM accounts;"
+
+	# Pattern to show on channel. 
+	# Variables: {{.Data}}
+	pattern = "Accounts: {{.Data}}"
+
+	# how often to run the query. Minium: 30s
+	refresh = "30m"
+
+[[sql_report.entries]]
+	channel_id = "676282331627257856"
+	query = "SELECT level2 FROM character_data cd INNER JOIN account a ON a.id = cd.account_id WHERE a.status = 0 ORDER BY level2 DESC LIMIT 1"
+	pattern = "Best Run: {{.Data}}"
+	refresh = "5m"
+
+[[sql_report.entries]]
+	channel_id = "678525065905831968"
+	query = "SELECT count(id) FROM character_data WHERE zone_id != 386"
+	pattern = "In Dungeon: {{.Data}}"
+	refresh = "60s"
+
+[[sql_report.entries]]
+	channel_id = "678525065905831968"
+	query = "SELECT count(id) FROM character_data WHERE zone_id = 386"
+	pattern = "In Hub: {{.Data}}"
+	refresh = "60s"
 `
