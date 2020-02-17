@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"os"
 	"runtime"
+	"sort"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -124,6 +125,8 @@ type SQLReportEntries struct {
 	RefreshDuration time.Duration
 	// Last time a report was successfully sent
 	NextReport time.Time
+	Text       string
+	Index      int
 }
 
 // NewConfig creates a new configuration
@@ -180,7 +183,8 @@ func NewConfig(ctx context.Context) (*Config, error) {
 	}
 
 	if cfg.SQLReport.IsEnabled {
-		for _, e := range cfg.SQLReport.Entries {
+		for i, e := range cfg.SQLReport.Entries {
+			e.Index = i
 
 			e.RefreshDuration, err = time.ParseDuration(e.Refresh)
 			if err != nil {
@@ -196,6 +200,10 @@ func NewConfig(ctx context.Context) (*Config, error) {
 			e.NextReport = time.Now()
 		}
 	}
+
+	sort.SliceStable(cfg.SQLReport.Entries, func(i, j int) bool {
+		return cfg.SQLReport.Entries[i].Index > cfg.SQLReport.Entries[j].Index
+	})
 
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if cfg.Debug {

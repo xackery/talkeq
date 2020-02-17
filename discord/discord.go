@@ -432,6 +432,7 @@ func (t *Discord) SetChannelName(channelID string, name string) error {
 	if _, err := t.conn.ChannelEdit(channelID, name); err != nil {
 		return errors.Wrap(err, "edit channel failed")
 	}
+	log.Debug().Msgf("setting channel to %s", name)
 	return nil
 }
 

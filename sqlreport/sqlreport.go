@@ -137,18 +137,20 @@ func (t *SQLReport) loop(ctx context.Context) {
 				}
 				continue
 			}
-			if err := t.discClient.SetChannelName(e.ChannelID, buf.String()); err != nil {
+			e.Text = buf.String()
+			e.NextReport = time.Now().Add(e.RefreshDuration)
+			if nextReport > e.RefreshDuration {
+				nextReport = e.RefreshDuration
+			}
+		}
+		for _, e := range t.config.Entries {
+			if err := t.discClient.SetChannelName(e.ChannelID, e.Text); err != nil {
 				log.Warn().Err(err).Msgf("sqlreport setchannelname %s", e.Query)
 				e.NextReport = time.Now().Add(e.RefreshDuration)
 				if nextReport > e.RefreshDuration {
 					nextReport = e.RefreshDuration
 				}
 				continue
-			}
-
-			e.NextReport = time.Now().Add(e.RefreshDuration)
-			if nextReport > e.RefreshDuration {
-				nextReport = e.RefreshDuration
 			}
 		}
 		t.mutex.Unlock()
