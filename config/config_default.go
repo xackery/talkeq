@@ -201,7 +201,7 @@ guilds_database = "./guilds.txt"
 
 	# host for database
 	# default: 127.0.0.1:3306
-	host = 127.0.01:3306
+	host = "127.0.0.1:3306"
 
 	# username to connect to database with.
 	# default: eqemu
