@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rs/zerolog/log"
+	"github.com/xackery/log"
 
 	"github.com/pkg/errors"
 	"github.com/xackery/talkeq/channel"
@@ -33,6 +33,7 @@ type Telnet struct {
 
 // New creates a new telnet connect
 func New(ctx context.Context, config config.Telnet) (*Telnet, error) {
+	log := log.New()
 	ctx, cancel := context.WithCancel(ctx)
 	t := &Telnet{
 		ctx:            ctx,
@@ -75,6 +76,7 @@ func (t *Telnet) IsConnected() bool {
 
 // Connect establishes a new connection with Telnet
 func (t *Telnet) Connect(ctx context.Context) error {
+	log := log.New()
 	var err error
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -160,6 +162,7 @@ func (t *Telnet) Connect(ctx context.Context) error {
 }
 
 func (t *Telnet) loop(ctx context.Context) {
+	log := log.New()
 	data := []byte{}
 	var err error
 	author := ""
@@ -296,6 +299,7 @@ func (t *Telnet) Who(ctx context.Context) (int, error) {
 // Disconnect stops a previously started connection with Telnet.
 // If called while a connection is not active, returns nil
 func (t *Telnet) Disconnect(ctx context.Context) error {
+	log := log.New()
 	if !t.config.IsEnabled {
 		log.Debug().Msg("telnet is disabled, skipping disconnect")
 		return nil
@@ -321,6 +325,7 @@ func (t *Telnet) Disconnect(ctx context.Context) error {
 
 // Send attempts to send a message through Telnet.
 func (t *Telnet) Send(ctx context.Context, source string, author string, channelID int, message string, optional string) error {
+	log := log.New()
 	channelName := channel.ToString(channelID)
 	if channelName == "" {
 		return fmt.Errorf("invalid channelID: %d", channelID)
@@ -412,6 +417,7 @@ func alphanumeric(data string) string {
 }
 
 func (t *Telnet) parsePlayersOnline(msg string) {
+	log := log.New()
 	p := strings.Index(msg, "players online")
 	if p <= 0 {
 		return

@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rs/zerolog/log"
+	"github.com/xackery/log"
 
 	"database/sql"
 
@@ -34,6 +34,7 @@ type SQLReport struct {
 
 // New creates a new sqlreport connect
 func New(ctx context.Context, config config.SQLReport, discClient *discord.Discord) (*SQLReport, error) {
+	log := log.New()
 	ctx, cancel := context.WithCancel(ctx)
 	t := &SQLReport{
 		ctx:            ctx,
@@ -68,6 +69,7 @@ func (t *SQLReport) IsConnected() bool {
 
 // Connect establishes a new connection with SQLReport
 func (t *SQLReport) Connect(ctx context.Context) error {
+	log := log.New()
 	var err error
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -95,6 +97,7 @@ func (t *SQLReport) Connect(ctx context.Context) error {
 }
 
 func (t *SQLReport) loop(ctx context.Context) {
+	log := log.New()
 	var value int64
 	nextReport := 1 * time.Second
 
@@ -160,6 +163,7 @@ func (t *SQLReport) loop(ctx context.Context) {
 // Disconnect stops a previously started connection with SQLReport.
 // If called while a connection is not active, returns nil
 func (t *SQLReport) Disconnect(ctx context.Context) error {
+	log := log.New()
 	if !t.config.IsEnabled {
 		log.Debug().Msg("sqlreport is disabled, skipping disconnect")
 		return nil

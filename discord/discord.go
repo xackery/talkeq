@@ -15,7 +15,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
+	"github.com/xackery/log"
 	"github.com/xackery/talkeq/channel"
 	"github.com/xackery/talkeq/config"
 	"github.com/xackery/talkeq/database"
@@ -37,6 +37,7 @@ type Discord struct {
 
 // New creates a new discord connect
 func New(ctx context.Context, config config.Discord, userManager *database.UserManager, guildManager *database.GuildManager) (*Discord, error) {
+	log := log.New()
 	ctx, cancel := context.WithCancel(ctx)
 
 	t := &Discord{
@@ -72,6 +73,7 @@ func New(ctx context.Context, config config.Discord, userManager *database.UserM
 
 // Connect establishes a new connection with Discord
 func (t *Discord) Connect(ctx context.Context) error {
+	log := log.New()
 	var err error
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -203,6 +205,7 @@ func (t *Discord) Connect(ctx context.Context) error {
 }
 
 func (t *Discord) snowflakeCheck(err error) {
+	log := log.New()
 	if !strings.Contains(err.Error(), "not snowflake") {
 		return
 	}
@@ -216,6 +219,7 @@ func (t *Discord) snowflakeCheck(err error) {
 }
 
 func (t *Discord) loop(ctx context.Context) {
+	log := log.New()
 	for {
 		select {
 		case <-ctx.Done():
@@ -266,6 +270,7 @@ func (t *Discord) IsConnected() bool {
 // Disconnect stops a previously started connection with Discord.
 // If called while a connection is not active, returns nil
 func (t *Discord) Disconnect(ctx context.Context) error {
+	log := log.New()
 	if !t.config.IsEnabled {
 		log.Debug().Msg("discord is disabled, skipping disconnect")
 		return nil
@@ -285,6 +290,7 @@ func (t *Discord) Disconnect(ctx context.Context) error {
 
 // Send attempts to send a message through Discord.
 func (t *Discord) Send(ctx context.Context, source string, author string, channelID int, message string, optional string) error {
+	log := log.New()
 	channelName := channel.ToString(channelID)
 	if channelName == "" {
 		return fmt.Errorf("invalid channelID: %d", channelID)
@@ -359,6 +365,7 @@ func (t *Discord) Subscribe(ctx context.Context, onMessage func(source string, a
 }
 
 func (t *Discord) handler(s *discordgo.Session, m *discordgo.MessageCreate) {
+	log := log.New()
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -426,6 +433,7 @@ func sanitize(data string) string {
 
 // SetChannelName is used for voice channel setting via SQLReport
 func (t *Discord) SetChannelName(channelID string, name string) error {
+	log := log.New()
 	if !t.isConnected {
 		return fmt.Errorf("discord not connected")
 	}
@@ -437,6 +445,7 @@ func (t *Discord) SetChannelName(channelID string, name string) error {
 }
 
 func (t *Discord) getIGNName(s *discordgo.Session, userid string) string {
+	log := log.New()
 	member, err := s.GuildMember(t.config.ServerID, userid)
 	if err != nil {
 		log.Warn().Err(err).Str("author_id", userid).Msg("getIGNName")

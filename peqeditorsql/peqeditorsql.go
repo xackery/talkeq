@@ -14,7 +14,7 @@ import (
 	"github.com/xackery/talkeq/channel"
 
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
+	"github.com/xackery/log"
 
 	"github.com/hpcloud/tail"
 	"github.com/xackery/talkeq/config"
@@ -33,6 +33,7 @@ type PEQEditorSQL struct {
 
 // New creates a new peqeditorsql connect
 func New(ctx context.Context, config config.PEQEditorSQL) (*PEQEditorSQL, error) {
+	log := log.New()
 	ctx, cancel := context.WithCancel(ctx)
 	t := &PEQEditorSQL{
 		ctx:    ctx,
@@ -69,6 +70,7 @@ func (t *PEQEditorSQL) IsConnected() bool {
 
 // Connect establishes a new connection with PEQEditorSQL
 func (t *PEQEditorSQL) Connect(ctx context.Context) error {
+	log := log.New()
 	//var err error
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -90,7 +92,7 @@ func (t *PEQEditorSQL) Connect(ctx context.Context) error {
 }
 
 func (t *PEQEditorSQL) loop(ctx context.Context) {
-
+	log := log.New()
 	tmpl := template.New("filePattern")
 	tmpl.Parse(t.config.FilePattern)
 
@@ -168,6 +170,7 @@ func (t *PEQEditorSQL) parse(msg string) (author string, channelID int, message 
 // Disconnect stops a previously started connection with PEQEditorSQL.
 // If called while a connection is not active, returns nil
 func (t *PEQEditorSQL) Disconnect(ctx context.Context) error {
+	log := log.New()
 	if !t.config.IsEnabled {
 		log.Debug().Msg("peqeditorsql is disabled, skipping disconnect")
 		return nil

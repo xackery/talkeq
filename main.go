@@ -8,8 +8,7 @@ import (
 	"runtime"
 
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+	"github.com/xackery/log"
 	"github.com/xackery/talkeq/client"
 )
 
@@ -17,9 +16,7 @@ import (
 var Version string
 
 func main() {
-	if runtime.GOOS != "windows" {
-		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-	}
+	log := log.New()
 	if Version == "" {
 		Version = "1.x.x EXPERIMENTAL"
 	}

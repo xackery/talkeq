@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/rs/zerolog/log"
+	"github.com/xackery/log"
 
 	nats "github.com/nats-io/nats.go"
 	"github.com/pkg/errors"
@@ -35,6 +35,7 @@ type Nats struct {
 
 // New creates a new nats connect
 func New(ctx context.Context, config config.Nats, guildManager *database.GuildManager) (*Nats, error) {
+	log := log.New()
 	ctx, cancel := context.WithCancel(ctx)
 	t := &Nats{
 		ctx:            ctx,
@@ -69,6 +70,7 @@ func (t *Nats) IsConnected() bool {
 
 // Connect establishes a new connection with Nats
 func (t *Nats) Connect(ctx context.Context) error {
+	log := log.New()
 	var err error
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -100,6 +102,7 @@ func (t *Nats) Connect(ctx context.Context) error {
 // Disconnect stops a previously started connection with Nats.
 // If called while a connection is not active, returns nil
 func (t *Nats) Disconnect(ctx context.Context) error {
+	log := log.New()
 	if !t.config.IsEnabled {
 		log.Debug().Msg("nats is disabled, skipping disconnect")
 		return nil
@@ -152,6 +155,7 @@ func (t *Nats) Send(ctx context.Context, source string, author string, channelID
 }
 
 func (t *Nats) onChannelMessage(m *nats.Msg) {
+	log := log.New()
 	var err error
 	channelMessage := new(pb.ChannelMessage)
 	err = proto.Unmarshal(m.Data, channelMessage)
@@ -243,6 +247,7 @@ func alphanumeric(data string) string {
 }
 
 func (t *Nats) onAdminMessage(m *nats.Msg) {
+	log := log.New()
 	var err error
 	channelMessage := new(pb.ChannelMessage)
 	err = proto.Unmarshal(m.Data, channelMessage)

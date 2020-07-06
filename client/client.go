@@ -2,13 +2,10 @@ package client
 
 import (
 	"context"
-	"os"
-	"runtime"
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+	"github.com/xackery/log"
 	"github.com/xackery/talkeq/channel"
 	"github.com/xackery/talkeq/config"
 	"github.com/xackery/talkeq/database"
@@ -40,9 +37,6 @@ func New(ctx context.Context) (*Client, error) {
 	c := Client{
 		ctx:    ctx,
 		cancel: cancel,
-	}
-	if runtime.GOOS != "windows" {
-		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	}
 	c.config, err = config.NewConfig(ctx)
 	if err != nil {
@@ -123,6 +117,7 @@ func New(ctx context.Context) (*Client, error) {
 
 // Connect attempts to connect to all enabled endpoints
 func (c *Client) Connect(ctx context.Context) error {
+	log := log.New()
 	err := c.discord.Connect(ctx)
 	if err != nil {
 		if !c.config.IsKeepAliveEnabled {
@@ -176,6 +171,7 @@ func (c *Client) Connect(ctx context.Context) error {
 }
 
 func (c *Client) loop(ctx context.Context) {
+	log := log.New()
 	var err error
 	go func() {
 		var err error
@@ -239,6 +235,7 @@ func (c *Client) loop(ctx context.Context) {
 
 func (c *Client) onMessage(source string, author string, channelID int, message string, optional string) {
 	var err error
+	log := log.New()
 	endpoints := "none"
 	switch source {
 	case "peqeditorsql":

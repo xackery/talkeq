@@ -11,7 +11,7 @@ import (
 	"github.com/xackery/talkeq/channel"
 
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
+	"github.com/xackery/log"
 
 	"github.com/hpcloud/tail"
 	"github.com/xackery/talkeq/config"
@@ -30,6 +30,7 @@ type EQLog struct {
 
 // New creates a new eqlog connect
 func New(ctx context.Context, config config.EQLog) (*EQLog, error) {
+	log := log.New()
 	ctx, cancel := context.WithCancel(ctx)
 	t := &EQLog{
 		ctx:    ctx,
@@ -66,6 +67,7 @@ func (t *EQLog) IsConnected() bool {
 
 // Connect establishes a new connection with EQLog
 func (t *EQLog) Connect(ctx context.Context) error {
+	log := log.New()
 	//var err error
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -87,6 +89,7 @@ func (t *EQLog) Connect(ctx context.Context) error {
 }
 
 func (t *EQLog) loop(ctx context.Context) {
+	log := log.New()
 	fi, err := os.Stat(t.config.Path)
 	if err != nil {
 		log.Warn().Err(err).Msg("eqlog stat polling fail")
@@ -205,6 +208,7 @@ func (t *EQLog) parse(msg string) (author string, channelID int, message string,
 // Disconnect stops a previously started connection with EQLog.
 // If called while a connection is not active, returns nil
 func (t *EQLog) Disconnect(ctx context.Context) error {
+	log := log.New()
 	if !t.config.IsEnabled {
 		log.Debug().Msg("eqlog is disabled, skipping disconnect")
 		return nil
