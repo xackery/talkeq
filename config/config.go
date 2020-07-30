@@ -3,10 +3,10 @@ package config
 import (
 	"context"
 	"fmt"
-	"html/template"
 	"os"
 	"runtime"
 	"sort"
+	"text/template"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -49,6 +49,8 @@ type Discord struct {
 	General         DiscordChannel `toml:"general"`
 	Admin           DiscordChannel `toml:"admin"`
 	PEQEditorSQLLog DiscordChannel `toml:"peq_editor_sql_log"`
+	Broadcast       DiscordChannel `toml:"broadcast"`
+	Emote           DiscordChannel `toml:"emote"`
 	Token           string         `toml:"bot_token"`
 	ServerID        string         `toml:"server_id"`
 	ClientID        string         `toml:"client_id"`
@@ -68,10 +70,19 @@ type Telnet struct {
 	Host                    string
 	Username                string
 	Password                string
-	ItemURL                 string   `toml:"item_url"`
-	IsServerAnnounceEnabled bool     `toml:"announce_server_status"`
-	MessageDeadline         duration `toml:"message_deadline"`
-	IsOOCAuctionEnabled     bool     `toml:"convert_ooc_auction"`
+	ItemURL                 string         `toml:"item_url"`
+	IsServerAnnounceEnabled bool           `toml:"announce_server_status"`
+	MessageDeadline         duration       `toml:"message_deadline"`
+	IsOOCAuctionEnabled     bool           `toml:"convert_ooc_auction"`
+	Entries                 []*TelnetEntry `toml:"entries"`
+}
+
+// TelnetEntry represents telnet event pattern detection
+type TelnetEntry struct {
+	ChannelID              string `toml:"channel_id"`
+	Regex                  string
+	MessagePattern         string `toml:"pattern"`
+	MessagePatternTemplate *template.Template
 }
 
 // Nats represents config settings for NATS
@@ -198,6 +209,13 @@ func NewConfig(ctx context.Context) (*Config, error) {
 				return nil, errors.Wrapf(err, "failed to parse pattern %s for sqlreport", e.Pattern)
 			}
 			e.NextReport = time.Now()
+		}
+	}
+	if cfg.Telnet.IsEnabled {
+		for _, e := range cfg.Telnet.Entries {
+			if e.MessagePatternTemplate, err = template.New("pattern").Parse(e.MessagePattern); err != nil {
+				return nil, errors.Wrapf(err, "failed to parse pattern %s for telnet", e.MessagePattern)
+			}
 		}
 	}
 

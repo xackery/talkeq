@@ -8,7 +8,7 @@ TalkEQ bridges links between everquest and other services. Extends [DiscordEQ](h
 
 Name|Channels
 ---|---
-Telnet|ooc
+Telnet|ooc, broadcast
 EQLog|ooc, guild, auction, general, shout
 PEQEditorSQLLog|peqeditorsqllog
 

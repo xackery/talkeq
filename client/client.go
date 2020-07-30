@@ -245,13 +245,13 @@ func (c *Client) onMessage(source string, author string, channelID int, message 
 		}
 		err = c.discord.Send(context.Background(), source, author, channelID, message, optional)
 		if err != nil {
-			log.Warn().Err(err).Msg("discord send")
+			log.Warn().Err(err).Msg("discord send onMessage (via peqeditorsql)")
+			return
+		}
+		if endpoints == "none" {
+			endpoints = "discord"
 		} else {
-			if endpoints == "none" {
-				endpoints = "discord"
-			} else {
-				endpoints += ",discord"
-			}
+			endpoints += ",discord"
 		}
 		log.Info().Msgf("[%s->%s] %s %s: %s", source, endpoints, author, channel.ToString(channelID), message)
 	case "telnet":
@@ -261,13 +261,13 @@ func (c *Client) onMessage(source string, author string, channelID int, message 
 		}
 		err = c.discord.Send(context.Background(), source, author, channelID, message, optional)
 		if err != nil {
-			log.Warn().Err(err).Msg("discord send")
+			log.Warn().Err(err).Msg("discord send onMessage (via telnet)")
+			return
+		}
+		if endpoints == "none" {
+			endpoints = "discord"
 		} else {
-			if endpoints == "none" {
-				endpoints = "discord"
-			} else {
-				endpoints += ",discord"
-			}
+			endpoints += ",discord"
 		}
 		log.Info().Msgf("[%s->%s] %s %s: %s", source, endpoints, author, channel.ToString(channelID), message)
 	case "nats":
@@ -277,13 +277,13 @@ func (c *Client) onMessage(source string, author string, channelID int, message 
 		}
 		err = c.discord.Send(context.Background(), source, author, channelID, message, optional)
 		if err != nil {
-			log.Warn().Err(err).Msg("discord send")
+			log.Warn().Err(err).Msg("discord send onMessage (via nats)")
+			return
+		}
+		if endpoints == "none" {
+			endpoints = "discord"
 		} else {
-			if endpoints == "none" {
-				endpoints = "discord"
-			} else {
-				endpoints += ",discord"
-			}
+			endpoints += ",discord"
 		}
 		log.Info().Msgf("[%s->%s] %s %s: %s", source, endpoints, author, channel.ToString(channelID), message)
 	case "discord":
@@ -291,26 +291,26 @@ func (c *Client) onMessage(source string, author string, channelID int, message 
 		if c.config.Telnet.IsEnabled {
 			err = c.telnet.Send(context.Background(), source, author, channelID, message, optional)
 			if err != nil {
-				log.Warn().Err(err).Msg("telnet send")
+				log.Warn().Err(err).Msg("telnet send onMessage (via discord)")
+				return
+			}
+			if endpoints == "none" {
+				endpoints = "telnet"
 			} else {
-				if endpoints == "none" {
-					endpoints = "telnet"
-				} else {
-					endpoints += ",telnet"
-				}
+				endpoints += ",telnet"
 			}
 			isSent = true
 		}
 		if c.config.Nats.IsEnabled {
 			err = c.nats.Send(context.Background(), source, author, channelID, message, optional)
 			if err != nil {
-				log.Warn().Err(err).Msg("nats send")
+				log.Warn().Err(err).Msg("nats send onMessage (via discord)")
+				return
+			}
+			if endpoints == "none" {
+				endpoints = "nats"
 			} else {
-				if endpoints == "none" {
-					endpoints = "nats"
-				} else {
-					endpoints += ",nats"
-				}
+				endpoints += ",nats"
 			}
 
 			isSent = true
@@ -329,13 +329,13 @@ func (c *Client) onMessage(source string, author string, channelID int, message 
 		}
 		err = c.discord.Send(context.Background(), source, author, channelID, message, optional)
 		if err != nil {
-			log.Warn().Err(err).Msg("discord send")
+			log.Warn().Err(err).Msg("discord send onMessage (via eqlog)")
+			return
+		}
+		if endpoints == "none" {
+			endpoints = "discord"
 		} else {
-			if endpoints == "none" {
-				endpoints = "discord"
-			} else {
-				endpoints += ",discord"
-			}
+			endpoints += ",discord"
 		}
 		log.Info().Msgf("[%s->%s] %s %s: %s", source, endpoints, author, channel.ToString(channelID), message)
 	default:

@@ -1,0 +1,104 @@
+# TalkEQ Configuration
+
+# Enable debug when a crash occurs that is not self apparant
+# Not recommended on normal use, very verbose
+debug = true
+
+# Keep all connections alive? 
+# If false, endpoint disconnects will not self repair
+# Not recommended to turn off except in advanced cases
+keep_alive = true
+
+# Users by IDs are mapped to their display names via the raw text file called users database
+# If users database file does not exist, a new one is created
+# This file is actively monitored. if you edit it while talkeq is running, it will reload the changes
+# This file overrides the IGN: playerName role tags in discord
+# If a user is found on this list, it will fall back to check for IGN tags
+# If you do an API registration, it will update the users database
+users_database = "./users.txt"
+
+[discord]
+ 
+# Enable Discord
+enabled = true
+
+# Required. Found at https://discordapp.com/developers/ under your app's main page
+client_id = "654277076849000448"
+
+# Required. Found at https://discordapp.com/developers/ under your app's bot's section
+bot_token = "NjU0Mjc3MDc2ODQ5MDAwNDQ4.XfDNiA.DQeWXFxUBdO3gnXFtcCV2aiOQMA"
+
+# Required. In Discord, right click the circle button representing your server, and Copy ID, and paste it here.
+server_id = "654276279247568916"
+
+# Status to show below bot. e.g. "Playing EQ: 123 Online"
+# {{.PlayerCount}} to show playercount
+bot_status = "EQ: {{.PlayerCount}} Online"
+
+	[discord.ooc]
+	# Required. In Discord, right click a channel name and Copy ID. Paste it here.
+	send_channel_id = "654276279247568919"
+	listen_channel_id = "654276279247568919"
+
+	[discord.auction]
+	# Required. In Discord, right click a channel name and Copy ID. Paste it here.
+	send_channel_id = "654278949882429447"
+	listen_channel_id = "654278949882429447"
+
+    [discord.guild]
+	# Required. In Discord, right click a channel name and Copy ID. Paste it here.
+	send_channel_id = "654278949882429447"
+	listen_channel_id = "654278949882429447"
+
+	[discord.peq_editor_sql_log]
+		# Optional. In Discord, right click a channel name and Copy ID. Paste it here.
+		# if you use the PEQ editor, and have sql log enabled, this is the channel it sends to
+		# Note: requires peq editor settings to be set
+	send_channel_id = "654278949882429447"
+	listen_channel_id = "654278949882429447"
+
+
+[telnet]
+
+# Enable Telnet (eqemu server owners)
+enabled = false
+
+# Optional. (eqemu server owners). Specify where telnet is located. 
+# Akka's installer by default will use 127.0.0.1:22
+host = "127.0.0.1:22"
+
+# Optional. (eqemu server owners) 
+# If you run talkeq on the same server as you run eqemu, 
+# by default username and password fields are not used or required (telnet listens to localhost only)
+username = ""
+
+# Optional. (eqemu server owners)
+password = ""
+
+# Optional. Converts item URLs to provided field. defaults to allakhazam. To disable, change to ""
+# default: "http://everquest.allakhazam.com/db/item.html?item="
+item_url = "http://everquest.allakhazam.com/db/item.html?item="
+
+
+[eqlog]
+
+# Enable EQLog parsing
+enabled = false
+
+# Path to find EQ Logs. Supports both / and \\, but not \
+# (If you copy paste from Explorer, be sure to double pad all backslashes,)
+# example: c:\\Program Files\\Everquest\\Logs)
+path = ""
+
+[peq_editor.sql]
+
+	# Enable PEQ Editor SQL log parsing
+	enabled = true
+
+	# SQL Path folder to find SQL Logs
+	# default: /var/www/peq/peqphpeditor/logs
+	path = "/Users/xackery/Documents/code/go/src/github.com/xackery/talkeq/"
+
+	# File Pattern of SQL Log files, only needs to be changed if you edit it to a custom value 
+	# default: sql_log_{{.Month}}-{{.Year}}.sql
+	file_pattern = "sql_log_{{.Month}}-{{.Year}}.sql"

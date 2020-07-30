@@ -1,6 +1,7 @@
 package telnet
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"regexp"
@@ -15,6 +16,11 @@ import (
 	"github.com/xackery/talkeq/channel"
 	"github.com/xackery/talkeq/config"
 	"github.com/ziutek/telnet"
+)
+
+var (
+	emoteRegex         = regexp.MustCompile("[a-z]+ EMOTES ([0-9]+),")
+	playersOnlineRegex = regexp.MustCompile("([0-9]+) players online")
 )
 
 // Telnet represents a telnet connection
@@ -158,6 +164,8 @@ func (t *Telnet) Connect(ctx context.Context) error {
 			s("telnet", "Admin", channel.ToInt(channel.OOC), "Server is now UP", "")
 		}
 	}
+
+	log.Info().Msg("telnet connected successfully, listening for messages")
 	return nil
 }
 
@@ -171,9 +179,11 @@ func (t *Telnet) loop(ctx context.Context) {
 
 	pattern := ""
 	channels := map[string]int{
-		"says ooc,": 260,
-		"auctions,": 261,
-		"general,":  291,
+		"says ooc,":   260,
+		"auctions,":   261,
+		"general,":    291,
+		"BROADCASTS,": 1001,
+		"EMOTES":      1003, //1003 is a fallback for emotes
 	}
 	for {
 		select {
@@ -197,15 +207,97 @@ func (t *Telnet) loop(ctx context.Context) {
 
 		channelID = 0
 		for k, v := range channels {
-			if strings.Contains(msg, k) {
-				channelID = v
-				pattern = k
-				break
+			if !strings.Contains(msg, k) {
+				continue
 			}
+			channelID = v
+			pattern = k
+			break
 		}
 
 		log.Debug().Str("msg", msg).Msg("raw telnet echo")
 		t.parsePlayersOnline(msg)
+
+		// first, see if a custom telnet entry regex pattern matches
+		isMatch := false
+		rmsg := t.convertLinks(msg)
+		for _, c := range t.config.Entries {
+			vreg, err := regexp.Compile(c.Regex)
+			if err != nil {
+				log.Debug().Str("regex", c.Regex).Msg("invalid regex found for entry")
+				continue
+			}
+
+			matches := vreg.FindAllStringSubmatch(rmsg, -1)
+			if len(matches) == 0 { //pattern has no match, unsupported emote
+				continue
+			}
+			channelID, err = strconv.Atoi(c.ChannelID)
+			if err != nil {
+				log.Debug().Str("channelid", c.ChannelID).Msg("invalid channel id for atoi")
+				continue
+			}
+
+			log.Debug().Msgf("found regex pattern match: %s", c.Regex)
+
+			regexGroup1 := ""
+			if len(matches[0]) > 1 {
+				regexGroup1 = matches[0][1]
+			}
+			regexGroup2 := ""
+			if len(matches[0]) > 2 {
+				regexGroup1 = matches[0][2]
+			}
+			regexGroup3 := ""
+			if len(matches[0]) > 3 {
+				regexGroup1 = matches[0][3]
+			}
+			regexGroup4 := ""
+			if len(matches[0]) > 4 {
+				regexGroup1 = matches[0][4]
+			}
+
+			finalMsg := ""
+			buf := new(bytes.Buffer)
+			if err := c.MessagePatternTemplate.Execute(buf, struct {
+				Msg           string
+				Author        string
+				ChannelNumber string
+				RegexGroup1   string
+				RegexGroup2   string
+				RegexGroup3   string
+				RegexGroup4   string
+			}{
+				rmsg,
+				author,
+				string(channelID),
+				regexGroup1,
+				regexGroup2,
+				regexGroup3,
+				regexGroup4,
+			}); err != nil {
+				log.Warn().Err(err).Msgf("telnet execute pattern %s for regex %s", c.MessagePattern, c.Regex)
+				continue
+			}
+			finalMsg = buf.String()
+
+			t.mutex.RLock()
+			if len(t.subscribers) == 0 {
+				t.mutex.RUnlock()
+				log.Debug().Msg("telnet message, but no subscribers to notify, ignoring")
+				continue
+			}
+
+			for _, s := range t.subscribers {
+				s("telnet", author, channelID, finalMsg, "")
+			}
+			t.mutex.RUnlock()
+			isMatch = true
+			break
+		}
+		if isMatch {
+			continue
+		}
 
 		if channelID == 0 {
 			log.Debug().Str("msg", msg).Msg("ignored (unknown channel msg)")
@@ -418,30 +510,26 @@ func alphanumeric(data string) string {
 
 func (t *Telnet) parsePlayersOnline(msg string) {
 	log := log.New()
-	p := strings.Index(msg, "players online")
-	if p <= 0 {
+
+	matches := playersOnlineRegex.FindAllStringSubmatch(msg, -1)
+	if len(matches) == 0 { //pattern has no match, unsupported emote
+		return
+	}
+	log.Debug().Msg("detected players online pattern")
+
+	if len(matches[0]) < 2 {
+		log.Debug().Str("msg", msg).Msg("ignored, no submatch for players online")
 		return
 	}
 
-	p = strings.Index(msg, " ")
-	if p <= 0 {
-		log.Debug().Str("msg", msg).Msg("online count ignored, no space found")
-		return
-	}
-
-	if msg[p+1:] != "players online\n" {
-		log.Debug().Str("msg[p+1:]", msg[p+1:]).Str("msg", msg).Msg("online count ignored, space pattern not matched")
-		return
-	}
-
-	online, err := strconv.ParseInt(msg[:p], 10, 64)
+	online, err := strconv.Atoi(matches[0][1])
 	if err != nil {
-		log.Debug().Str("online", msg[:p]).Str("msg", msg).Msg("online count ignored, parse failed?")
+		log.Debug().Str("msg", msg).Msg("online count ignored, parse failed")
 		return
 	}
 
 	t.mutex.Lock()
-	t.online = int(online)
+	t.online = online
 	t.mutex.Unlock()
-	log.Debug().Int64("online", online).Msg("updated online count")
+	log.Debug().Int("online", online).Msg("updated online count")
 }

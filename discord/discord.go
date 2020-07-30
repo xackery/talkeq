@@ -314,11 +314,18 @@ func (t *Discord) Send(ctx context.Context, source string, author string, channe
 		channel.General:         t.config.General.SendChannelID,
 		channel.PEQEditorSQLLog: t.config.PEQEditorSQLLog.SendChannelID,
 		channel.Admin:           t.config.Admin.SendChannelID,
+		channel.Broadcast:       t.config.Broadcast.SendChannelID,
 		channel.Guild:           "",
 	}
 	finalMessage := fmt.Sprintf("**%s %s:** %s", author, channelName, message)
 	sendChannelID := ""
 	for name, chanID := range channels {
+		if channelID > 5000 { // > 5k channel id's means it's a forced pattern custom message
+			sendChannelID = fmt.Sprintf("%d", channelID)
+			finalMessage = message
+			break
+		}
+
 		if channelName != name {
 			continue
 		}
@@ -343,16 +350,16 @@ func (t *Discord) Send(ctx context.Context, source string, author string, channe
 	}
 
 	if sendChannelID == "" {
-		log.Warn().Str("author", author).Str("channelName", channelName).Str("message", message).Msgf("unknown send channel id")
+		log.Warn().Str("author", author).Str("channelName", channelName).Str("message", finalMessage).Msgf("unknown send channel id")
 		return nil
 	}
 
 	_, err := t.conn.ChannelMessageSend(sendChannelID, finalMessage)
 	if err != nil {
-		return errors.Wrapf(err, "send %s %s: %s", author, channelName, message)
+		return errors.Wrapf(err, "send %s %s: %s", author, channelName, finalMessage)
 	}
 
-	log.Info().Str("author", author).Str("channelName", channelName).Str("message", message).Msg("sent to discord")
+	log.Debug().Str("author", author).Str("channelName", channelName).Str("finalMessage", finalMessage).Msg("sent to discord")
 	return nil
 }
 

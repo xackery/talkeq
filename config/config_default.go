@@ -92,6 +92,12 @@ guilds_database = "./guilds.txt"
 		# Note: requires peq editor settings to be set
 		send_channel_id = ""
 
+	[discord.broadcast]
+		# Optional. In Discord, right click a channel name and Copy ID. Paste it here.
+		# broadcast messages will appear on this discord channel.
+		send_channel_id = ""
+		listen_channel_id = ""
+
 [telnet]
 
 	# Enable Telnet (eqemu server owners)
@@ -128,6 +134,19 @@ guilds_database = "./guilds.txt"
 
 	# if a OOC message uses prefix WTS or WTB, convert them into auction
 	convert_ooc_auction = true
+
+# entries is full of custom pattern detection. Useful for emotes and custom messages
+
+[[telnet.entries]]
+	# regex to look for in message
+	regex = "<[a-zA-Z ]+> [a-zA-Z]+ of <[a-zA-Z ]+> has been slain by [a-zA-Z]+ of <[a-zA-Z ]+>!"
+
+	# channel id to relay telnet event to
+	channel_id = ""
+
+	# Pattern to send message
+	# Variables: {{.Msg}}, {{.Author}}, {{.ChannelNumber}}, {{.RegexGroup1}}, {{.RegexGroup2}} etc for submatch () patterns
+	pattern = "Kill Event: {{.Msg}}"
 
 # EQ Log is used to parse everquest client logs. Primarily for live EQ, non server owners
 [eqlog]
