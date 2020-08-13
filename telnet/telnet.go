@@ -19,7 +19,6 @@ import (
 )
 
 var (
-	emoteRegex         = regexp.MustCompile("[a-z]+ EMOTES ([0-9]+),")
 	playersOnlineRegex = regexp.MustCompile("([0-9]+) players online")
 )
 
@@ -183,7 +182,6 @@ func (t *Telnet) loop(ctx context.Context) {
 		"auctions,":   261,
 		"general,":    291,
 		"BROADCASTS,": 1001,
-		"EMOTES":      1003, //1003 is a fallback for emotes
 	}
 	for {
 		select {

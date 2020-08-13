@@ -50,7 +50,6 @@ type Discord struct {
 	Admin           DiscordChannel `toml:"admin"`
 	PEQEditorSQLLog DiscordChannel `toml:"peq_editor_sql_log"`
 	Broadcast       DiscordChannel `toml:"broadcast"`
-	Emote           DiscordChannel `toml:"emote"`
 	Token           string         `toml:"bot_token"`
 	ServerID        string         `toml:"server_id"`
 	ClientID        string         `toml:"client_id"`
