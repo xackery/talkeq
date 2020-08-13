@@ -20,6 +20,8 @@ import (
 
 var (
 	playersOnlineRegex = regexp.MustCompile("([0-9]+) players online")
+	oldItemLink        = regexp.MustCompile("\\x12([0-9A-Z]{6})[0-9A-Z]{39}([A-Za-z'`.,!? ]+)\\x12")
+	newItemLink        = regexp.MustCompile("\\x12([0-9A-Z]{6})[0-9A-Z]{50}([A-Za-z'`.,!? ]+)\\x12")
 )
 
 // Telnet represents a telnet connection
@@ -475,28 +477,35 @@ func (t *Telnet) sendLn(s string) (err error) {
 }
 
 func (t *Telnet) convertLinks(message string) string {
-	prefix := t.config.ItemURL
-	if strings.Count(message, "") <= 1 {
-		return message
-	}
-	sets := strings.SplitN(message, "", 3)
 
-	itemid, err := strconv.ParseInt(sets[1][0:6], 16, 32)
-	if err != nil {
-		itemid = 0
+	matches := newItemLink.FindAllStringSubmatchIndex(message, -1)
+	if len(matches) == 0 {
+		matches = oldItemLink.FindAllStringSubmatchIndex(message, -1)
 	}
-	itemname := sets[1][56:]
-	itemlink := prefix
-	if itemid > 0 && len(prefix) > 0 {
-		itemlink = fmt.Sprintf(" %s%d (%s)", itemlink, itemid, itemname)
-	} else {
-		itemlink = fmt.Sprintf(" *%s* ", itemname)
+	out := message
+	for _, submatches := range matches {
+		if len(submatches) < 6 {
+			continue
+		}
+		itemLink := message[submatches[2]:submatches[3]]
+
+		itemID, err := strconv.ParseInt(itemLink, 16, 32)
+		if err != nil {
+		}
+		itemName := message[submatches[4]:submatches[5]]
+
+		out = message[0:submatches[0]]
+		if itemID > 0 && len(t.config.ItemURL) > 0 {
+			out += fmt.Sprintf("%s%d (%s)", t.config.ItemURL, itemID, itemName)
+		} else {
+			out += fmt.Sprintf("*%s* ", itemName)
+		}
+		out += message[submatches[1]:]
+		out = strings.TrimSpace(out)
+		out = t.convertLinks(out)
+		break
 	}
-	message = sets[0] + itemlink + sets[2]
-	if strings.Count(message, "") > 1 {
-		message = t.convertLinks(message)
-	}
-	return message
+	return out
 }
 
 // alphanumeric sanitizes incoming data to only be valid
