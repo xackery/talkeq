@@ -1,6 +1,7 @@
 package eqlog
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -8,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/xackery/talkeq/channel"
+	"github.com/xackery/talkeq/request"
 
 	"github.com/pkg/errors"
 	"github.com/xackery/log"
@@ -24,7 +25,7 @@ type EQLog struct {
 	isConnected bool
 	mutex       sync.RWMutex
 	config      config.EQLog
-	subscribers []func(string, string, int, string, string)
+	subscribers []func(interface{}) error
 	isNewEQLog  bool
 }
 
@@ -112,10 +113,6 @@ func (t *EQLog) loop(ctx context.Context) {
 		t.Disconnect(ctx)
 		return
 	}
-	source := "eqlog"
-	author := ""
-	message := ""
-	channelID := 0
 
 	for line := range tailer.Lines {
 		select {
@@ -124,85 +121,58 @@ func (t *EQLog) loop(ctx context.Context) {
 			return
 		default:
 		}
-		author, channelID, message, err = t.parse(line.Text)
-		if err != nil {
-			log.Warn().Err(err).Msg("eqlog parse")
-			continue
-		}
-		if len(message) < 1 {
-			log.Debug().Str("text", line.Text).Msg("ignoring empty message")
-			continue
-		}
 
-		if len(t.subscribers) == 0 {
-			log.Debug().Msg("eqlog message, but no subscribers to notify, ignoring")
-			continue
-		}
+		for routeIndex, route := range t.config.Routes {
 
-		for _, s := range t.subscribers {
-			s(source, author, channelID, message, "")
-		}
-	}
-}
-
-func (t *EQLog) parse(msg string) (author string, channelID int, message string, err error) {
-	patterns := map[string]int{
-		"says out of character, ": channel.ToInt(channel.OOC),
-		"auctions, ":              channel.ToInt(channel.Auction),
-		"says to general, ":       channel.ToInt(channel.General),
-		"shouts, ":                channel.ToInt(channel.Shout),
-		"says to guild, ":         channel.ToInt(channel.Guild),
-	}
-	var pattern string
-	var p int
-	for pattern, channelID = range patterns {
-		if !strings.Contains(msg, pattern) {
-			continue
-		}
-		p = strings.Index(msg, "]")
-		if p < 0 {
-			err = fmt.Errorf("no ] on msg, invalid logfile?")
-			return
-		}
-		p = strings.Index(msg, "]") + 2
-		msg = msg[p:]
-
-		p = strings.Index(msg, " ")
-		if p < 0 {
-			err = fmt.Errorf("no space after timestamp")
-			return
-		}
-
-		author = msg[:p]
-		msg = msg[:p]
-
-		p = strings.Index(msg, "'")
-		if p < 0 {
-			err = fmt.Errorf("no single quote encapsulation of message")
-			return
-		}
-		msg = msg[p+1:]
-		p = strings.Index(msg, "'")
-		if p < 0 {
-			err = fmt.Errorf("no single quote ending of message")
-			return
-		}
-		message = msg[:p]
-
-		if pattern == "says to general, " && t.config.IsGeneralChatAuctionEnabled {
-			p = strings.Index(msg, "WTS ")
-			if p > -1 {
-				channelID = channel.ToInt(channel.Auction)
+			pattern, err := regexp.Compile(route.Trigger.Regex)
+			if err != nil {
+				log.Debug().Err(err).Int("route", routeIndex).Msg("compile")
+				continue
 			}
-			p = strings.Index(msg, "WTB ")
-			if p > -1 {
-				channelID = channel.ToInt(channel.Auction)
+			matches := pattern.FindAllStringSubmatch(line.Text, -1)
+			if len(matches) == 0 {
+				continue
+			}
+
+			name := ""
+			message := ""
+			if route.Trigger.MessageIndex >= len(matches[0]) {
+				message = matches[0][route.Trigger.MessageIndex]
+			}
+			if route.Trigger.NameIndex >= len(matches[0]) {
+				name = matches[0][route.Trigger.NameIndex]
+			}
+
+			buf := new(bytes.Buffer)
+			if err := route.MessagePatternTemplate().Execute(buf, struct {
+				Name    string
+				Message string
+			}{
+				name,
+				message,
+			}); err != nil {
+				log.Warn().Err(err).Int("route", routeIndex).Msg("[discord] execute")
+				continue
+			}
+			switch route.Target {
+			case "discord":
+				req := request.DiscordSend{
+					Ctx:       ctx,
+					ChannelID: route.ChannelID,
+					Message:   buf.String(),
+				}
+				for _, s := range t.subscribers {
+					err = s(req)
+					if err != nil {
+						log.Warn().Err(err).Msg("[eqlog->discord]")
+					}
+				}
+			default:
+				log.Warn().Msgf("unsupported target type: %s", route.Target)
+				continue
 			}
 		}
-
-		return
 	}
-	return
 }
 
 // Disconnect stops a previously started connection with EQLog.
@@ -228,7 +198,7 @@ func (t *EQLog) Send(ctx context.Context, source string, author string, channelI
 }
 
 // Subscribe listens for new events on eqlog
-func (t *EQLog) Subscribe(ctx context.Context, onMessage func(source string, author string, channelID int, message string, optional string)) error {
+func (t *EQLog) Subscribe(ctx context.Context, onMessage func(interface{}) error) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	t.subscribers = append(t.subscribers, onMessage)

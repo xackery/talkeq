@@ -13,8 +13,8 @@ import (
 	"github.com/xackery/log"
 
 	"github.com/pkg/errors"
-	"github.com/xackery/talkeq/channel"
 	"github.com/xackery/talkeq/config"
+	"github.com/xackery/talkeq/request"
 	"github.com/ziutek/telnet"
 )
 
@@ -22,6 +22,11 @@ var (
 	playersOnlineRegex = regexp.MustCompile("([0-9]+) players online")
 	oldItemLink        = regexp.MustCompile("\\x12([0-9A-Z]{6})[0-9A-Z]{39}([A-Za-z'`.,!? ]+)\\x12")
 	newItemLink        = regexp.MustCompile("\\x12([0-9A-Z]{6})[0-9A-Z]{50}([A-Za-z'`.,!? ]+)\\x12")
+)
+
+const (
+	// ActionMessage represents a telnet message
+	ActionMessage = "message"
 )
 
 // Telnet represents a telnet connection
@@ -32,7 +37,7 @@ type Telnet struct {
 	mutex          sync.RWMutex
 	config         config.Telnet
 	conn           *telnet.Conn
-	subscribers    []func(string, string, int, string, string)
+	subscribers    []func(interface{}) error
 	isNewTelnet    bool
 	isInitialState bool
 	online         int
@@ -65,8 +70,8 @@ func New(ctx context.Context, config config.Telnet) (*Telnet, error) {
 		config.Host = "127.0.0.1:23"
 	}
 
-	if config.MessageDeadline.Seconds() < 1 {
-		config.MessageDeadline.Duration = 10 * time.Second
+	if config.MessageDeadlineDuration().Seconds() < 1 {
+		config.MessageDeadline = "10s"
 		//return nil, fmt.Errorf("telnet.message_deadline must be greater than 1s")
 	}
 
@@ -160,10 +165,37 @@ func (t *Telnet) Connect(ctx context.Context) error {
 	t.conn.SetWriteDeadline(time.Time{})
 	go t.loop(ctx)
 	t.isConnected = true
+
 	if !isInitialState && t.config.IsServerAnnounceEnabled && len(t.subscribers) > 0 {
-		for _, s := range t.subscribers {
-			s("telnet", "Admin", channel.ToInt(channel.OOC), "Server is now UP", "")
+		for routeIndex, route := range t.config.Routes {
+			buf := new(bytes.Buffer)
+			if err := route.MessagePatternTemplate().Execute(buf, struct {
+				Name    string
+				Message string
+			}{
+				"",
+				"",
+			}); err != nil {
+				log.Warn().Err(err).Int("route", routeIndex).Msg("[telnet] execute")
+				continue
+			}
+
+			if route.Trigger.Custom != "serverup" {
+				continue
+			}
+			req := request.DiscordSend{
+				Ctx:       ctx,
+				ChannelID: route.ChannelID,
+				Message:   buf.String(),
+			}
+			for _, s := range t.subscribers {
+				err = s(req)
+				if err != nil {
+					log.Warn().Err(err).Msg("[telnet->discord]")
+				}
+			}
 		}
+
 	}
 
 	log.Info().Msg("telnet connected successfully, listening for messages")
@@ -174,17 +206,8 @@ func (t *Telnet) loop(ctx context.Context) {
 	log := log.New()
 	data := []byte{}
 	var err error
-	author := ""
-	channelID := 0
-	msg := ""
+	var msg string
 
-	pattern := ""
-	channels := map[string]int{
-		"says ooc,":   260,
-		"auctions,":   261,
-		"general,":    291,
-		"BROADCASTS,": 1001,
-	}
 	for {
 		select {
 		case <-t.ctx.Done():
@@ -205,172 +228,60 @@ func (t *Telnet) loop(ctx context.Context) {
 			continue
 		}
 
-		channelID = 0
-		for k, v := range channels {
-			if !strings.Contains(msg, k) {
-				continue
-			}
-			channelID = v
-			pattern = k
-			break
-		}
-
 		log.Debug().Str("msg", msg).Msg("raw telnet echo")
 		t.parsePlayersOnline(msg)
 
-		// first, see if a custom telnet entry regex pattern matches
-		isMatch := false
-		rmsg := t.convertLinks(msg)
-		for _, c := range t.config.Entries {
-			vreg, err := regexp.Compile(c.Regex)
-			if err != nil {
-				log.Debug().Str("regex", c.Regex).Msg("invalid regex found for entry")
-				continue
-			}
-
-			matches := vreg.FindAllStringSubmatch(rmsg, -1)
-			if len(matches) == 0 { //pattern has no match, unsupported emote
-				continue
-			}
-			channelID, err = strconv.Atoi(c.ChannelID)
-			if err != nil {
-				log.Debug().Str("channelid", c.ChannelID).Msg("invalid channel id for atoi")
-				continue
-			}
-
-			log.Debug().Msgf("found regex pattern match: %s", c.Regex)
-
-			regexGroup1 := ""
-			if len(matches[0]) > 1 {
-				regexGroup1 = matches[0][1]
-			}
-			regexGroup2 := ""
-			if len(matches[0]) > 2 {
-				regexGroup1 = matches[0][2]
-			}
-			regexGroup3 := ""
-			if len(matches[0]) > 3 {
-				regexGroup1 = matches[0][3]
-			}
-			regexGroup4 := ""
-			if len(matches[0]) > 4 {
-				regexGroup1 = matches[0][4]
-			}
-
-			finalMsg := ""
-			buf := new(bytes.Buffer)
-			if err := c.MessagePatternTemplate.Execute(buf, struct {
-				Msg           string
-				Author        string
-				ChannelNumber string
-				RegexGroup1   string
-				RegexGroup2   string
-				RegexGroup3   string
-				RegexGroup4   string
-			}{
-				rmsg,
-				author,
-				string(channelID),
-				regexGroup1,
-				regexGroup2,
-				regexGroup3,
-				regexGroup4,
-			}); err != nil {
-				log.Warn().Err(err).Msgf("telnet execute pattern %s for regex %s", c.MessagePattern, c.Regex)
-				continue
-			}
-			finalMsg = buf.String()
-
-			t.mutex.RLock()
-			if len(t.subscribers) == 0 {
-				t.mutex.RUnlock()
-				log.Debug().Msg("telnet message, but no subscribers to notify, ignoring")
-				continue
-			}
-
-			for _, s := range t.subscribers {
-				s("telnet", author, channelID, finalMsg, "")
-			}
-			t.mutex.RUnlock()
-			isMatch = true
-			break
-		}
-		if isMatch {
-			continue
-		}
-
-		if channelID == 0 {
-			log.Debug().Str("msg", msg).Msg("ignored (unknown channel msg)")
-			continue
-		}
-
-		//prompt clearing
-		if strings.Contains(msg, ">") &&
-			strings.Index(msg, ">") < strings.Index(msg, " ") {
-			msg = msg[strings.Index(msg, ">")+1:]
-		}
-
-		//there's a double user> prompt issue that happens some times, this helps remedy it
-		if strings.Contains(msg, ">") &&
-			strings.Index(msg, ">") < strings.Index(msg, pattern) {
-			msg = msg[strings.Index(msg, ">")+1:]
-		}
-
-		//there's a double user> prompt issue that happens some times, this also helps remedy it
-		//removed, may be overkill
-		//for strings.Contains(msg, "\b") {
-		//	msg = msg[strings.Index(msg, "\b")+1:]
-		//}
-		//just strip any \b text
-		msg = strings.ReplaceAll(msg, "\b", "")
-
-		if msg[0:1] == "*" { //ignore echo backs
-			log.Debug().Str("msg", msg).Msg("ignored (* = echo back)")
-			continue
-		}
-
-		author = msg[0:strings.Index(msg, fmt.Sprintf(" %s", pattern))]
-
-		//newTelnet added some odd garbage, this cleans it
-		author = strings.Replace(author, ">", "", -1) //remove duplicate prompts
-		author = strings.Replace(author, " ", "", -1) //clean up
-		author = alphanumeric(author)
-
-		padOffset := 3
-
-		if t.isNewTelnet { //if new telnet, offset is 2 off.
-			padOffset = 2
-		}
-
-		msg = msg[strings.Index(msg, pattern)+11 : len(msg)-padOffset]
-		if pattern == "general," && strings.Index(msg, "[#General ") > 0 { //general has a special message append
-			msg = msg[strings.Index(msg, "[#General ")+10:]
-		}
-		author = strings.ReplaceAll(author, "_", " ")
 		msg = t.convertLinks(msg)
-		msg = strings.ReplaceAll(msg, "\n", "")
-		t.mutex.RLock()
-		if len(t.subscribers) == 0 {
-			t.mutex.RUnlock()
-			log.Debug().Msg("telnet message, but no subscribers to notify, ignoring")
-			continue
+		for routeIndex, route := range t.config.Routes {
+			pattern, err := regexp.Compile(route.Trigger.Regex)
+			if err != nil {
+				log.Debug().Err(err).Int("route", routeIndex).Msg("compile")
+				continue
+			}
+			matches := pattern.FindAllStringSubmatch(msg, -1)
+			if len(matches) == 0 {
+				continue
+			}
+
+			name := ""
+			message := ""
+			if route.Trigger.MessageIndex >= len(matches[0]) {
+				message = matches[0][route.Trigger.MessageIndex]
+			}
+			if route.Trigger.NameIndex >= len(matches[0]) {
+				name = matches[0][route.Trigger.NameIndex]
+			}
+
+			buf := new(bytes.Buffer)
+			if err := route.MessagePatternTemplate().Execute(buf, struct {
+				Name    string
+				Message string
+			}{
+				name,
+				message,
+			}); err != nil {
+				log.Warn().Err(err).Int("route", routeIndex).Msg("[discord] execute")
+				continue
+			}
+			switch route.Target {
+			case "discord":
+				req := request.DiscordSend{
+					Ctx:       ctx,
+					ChannelID: route.ChannelID,
+					Message:   buf.String(),
+				}
+				for _, s := range t.subscribers {
+					err = s(req)
+					if err != nil {
+						log.Warn().Err(err).Msg("[eqlog->discord]")
+					}
+				}
+			default:
+				log.Warn().Msgf("unsupported target type: %s", route.Target)
+				continue
+			}
 		}
 
-		p := 0
-		if t.config.IsOOCAuctionEnabled {
-			p = strings.Index(msg, "WTS ")
-			if p > -1 {
-				channelID = channel.ToInt(channel.Auction)
-			}
-			p = strings.Index(msg, "WTB ")
-			if p > -1 {
-				channelID = channel.ToInt(channel.Auction)
-			}
-		}
-
-		for _, s := range t.subscribers {
-			s("telnet", author, channelID, msg, "")
-		}
 		t.mutex.RUnlock()
 	}
 }
@@ -408,46 +319,57 @@ func (t *Telnet) Disconnect(ctx context.Context) error {
 	t.conn = nil
 	t.isConnected = false
 	if !t.isInitialState && t.config.IsServerAnnounceEnabled && len(t.subscribers) > 0 {
-		for _, s := range t.subscribers {
-			s("telnet", "Admin", channel.ToInt(channel.OOC), "Server is now DOWN", "")
+		for routeIndex, route := range t.config.Routes {
+			buf := new(bytes.Buffer)
+			if err := route.MessagePatternTemplate().Execute(buf, struct {
+				Name    string
+				Message string
+			}{
+				"",
+				"",
+			}); err != nil {
+				log.Warn().Err(err).Int("route", routeIndex).Msg("[telnet] execute")
+				continue
+			}
+
+			if route.Trigger.Custom != "serverdown" {
+				continue
+			}
+			req := request.DiscordSend{
+				Ctx:       ctx,
+				ChannelID: route.ChannelID,
+				Message:   buf.String(),
+			}
+			for _, s := range t.subscribers {
+				err = s(req)
+				if err != nil {
+					log.Warn().Err(err).Msg("[telnet->discord]")
+				}
+			}
 		}
 	}
 	return nil
 }
 
 // Send attempts to send a message through Telnet.
-func (t *Telnet) Send(ctx context.Context, source string, author string, channelID int, message string, optional string) error {
-	log := log.New()
-	channelName := channel.ToString(channelID)
-	if channelName == "" {
-		return fmt.Errorf("invalid channelID: %d", channelID)
-	}
-
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
-
+func (t *Telnet) Send(ctx context.Context, message string) error {
 	if !t.config.IsEnabled {
-		log.Warn().Str("author", author).Str("channelName", channelName).Str("message", message).Msgf("telnet is disabled, ignoring message")
+		return fmt.Errorf("telnet is not enabled")
 	}
 
 	if !t.isConnected {
-		log.Warn().Str("author", author).Str("channelName", channelName).Str("message", message).Msgf("telnet is not connected, ignoring message")
-		return nil
+		return fmt.Errorf("telnet is not connected")
 	}
 
-	chatAction := "says"
-	if channelName == channel.Auction {
-		chatAction = "auctions"
-	}
-	err := t.sendLn(fmt.Sprintf("emote world %d %s %s from %s, '%s'", channelID, author, chatAction, source, message))
+	err := t.sendLn(message)
 	if err != nil {
-		return errors.Wrap(err, "send")
+		return fmt.Errorf("send: %w", err)
 	}
 	return nil
 }
 
 // Subscribe listens for new events on telnet
-func (t *Telnet) Subscribe(ctx context.Context, onMessage func(source string, author string, channelID int, message string, optional string)) error {
+func (t *Telnet) Subscribe(ctx context.Context, onMessage func(interface{}) error) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	t.subscribers = append(t.subscribers, onMessage)

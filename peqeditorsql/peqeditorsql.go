@@ -12,12 +12,18 @@ import (
 	"time"
 
 	"github.com/xackery/talkeq/channel"
+	"github.com/xackery/talkeq/request"
 
 	"github.com/pkg/errors"
 	"github.com/xackery/log"
 
 	"github.com/hpcloud/tail"
 	"github.com/xackery/talkeq/config"
+)
+
+const (
+	//ActionMessage is used when broadcasting to discord a message
+	ActionMessage = "message"
 )
 
 // PEQEditorSQL represents a peqeditorsql connection
@@ -27,7 +33,7 @@ type PEQEditorSQL struct {
 	isConnected       bool
 	mutex             sync.RWMutex
 	config            config.PEQEditorSQL
-	subscribers       []func(string, string, int, string, string)
+	subscribers       []func(interface{}) error
 	isNewPEQEditorSQL bool
 }
 
@@ -130,10 +136,6 @@ func (t *PEQEditorSQL) loop(ctx context.Context) {
 		t.Disconnect(ctx)
 		return
 	}
-	source := "peqeditorsql"
-	author := ""
-	message := ""
-	channelID := 0
 
 	for line := range tailer.Lines {
 		select {
@@ -142,23 +144,56 @@ func (t *PEQEditorSQL) loop(ctx context.Context) {
 			return
 		default:
 		}
-		author, channelID, message, err = t.parse(line.Text)
-		if err != nil {
-			log.Warn().Err(err).Msg("peqeditorsql parse")
-			continue
-		}
-		if len(message) < 1 {
-			log.Debug().Str("text", line.Text).Msg("ignoring empty message")
-			continue
-		}
 
-		if len(t.subscribers) == 0 {
-			log.Debug().Msg("peqeditorsql message, but no subscribers to notify, ignoring")
-			continue
-		}
+		for routeIndex, route := range t.config.Routes {
 
-		for _, s := range t.subscribers {
-			s(source, author, channelID, message, "")
+			pattern, err := regexp.Compile(route.Trigger.Regex)
+			if err != nil {
+				log.Debug().Err(err).Int("route", routeIndex).Msg("compile")
+				continue
+			}
+			matches := pattern.FindAllStringSubmatch(line.Text, -1)
+			if len(matches) == 0 {
+				continue
+			}
+
+			name := ""
+			message := ""
+			if route.Trigger.MessageIndex >= len(matches[0]) {
+				message = matches[0][route.Trigger.MessageIndex]
+			}
+			if route.Trigger.NameIndex >= len(matches[0]) {
+				name = matches[0][route.Trigger.NameIndex]
+			}
+
+			buf := new(bytes.Buffer)
+			if err := route.MessagePatternTemplate().Execute(buf, struct {
+				Name    string
+				Message string
+			}{
+				name,
+				message,
+			}); err != nil {
+				log.Warn().Err(err).Int("route", routeIndex).Msg("[discord] execute")
+				continue
+			}
+			switch route.Target {
+			case "discord":
+				req := request.DiscordSend{
+					Ctx:       ctx,
+					ChannelID: route.ChannelID,
+					Message:   buf.String(),
+				}
+				for _, s := range t.subscribers {
+					err = s(req)
+					if err != nil {
+						log.Warn().Err(err).Msg("[eqlog->discord]")
+					}
+				}
+			default:
+				log.Warn().Msgf("unsupported target type: %s", route.Target)
+				continue
+			}
 		}
 	}
 }
@@ -190,7 +225,7 @@ func (t *PEQEditorSQL) Send(ctx context.Context, source string, author string, c
 }
 
 // Subscribe listens for new events on peqeditorsql
-func (t *PEQEditorSQL) Subscribe(ctx context.Context, onMessage func(source string, author string, channelID int, message string, optional string)) error {
+func (t *PEQEditorSQL) Subscribe(ctx context.Context, onMessage func(interface{}) error) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	t.subscribers = append(t.subscribers, onMessage)

@@ -98,7 +98,7 @@ func (t *SQLReport) Connect(ctx context.Context) error {
 
 func (t *SQLReport) loop(ctx context.Context) {
 	log := log.New()
-	var value int64
+	var value string
 	nextReport := 1 * time.Second
 
 	for {
@@ -129,7 +129,7 @@ func (t *SQLReport) loop(ctx context.Context) {
 
 			buf := new(bytes.Buffer)
 			if err := e.PatternTemplate.Execute(buf, struct {
-				Data int64
+				Data string
 			}{
 				value,
 			}); err != nil {
@@ -187,6 +187,6 @@ func (t *SQLReport) Send(ctx context.Context, source string, author string, chan
 }
 
 // Subscribe listens for new events on sqlreport
-func (t *SQLReport) Subscribe(ctx context.Context, onMessage func(source string, author string, channelID int, message string, optional string)) error {
+func (t *SQLReport) Subscribe(ctx context.Context, onMessage func(interface{}) error) error {
 	return fmt.Errorf("SQL reporting does not support subscribe")
 }

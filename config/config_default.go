@@ -28,6 +28,13 @@ users_database = "./users.txt"
 # This file is actively monitored. if you edit it while talkeq is running, it will reload the changes instantly
 guilds_database = "./guilds.txt"
 
+[api]
+	# Enable API service
+	enabled = true
+
+	# What address and port to bind to (default is 127.0.0.1, so only local traffic can talk to it)
+	host = "127.0.0.1:9000"
+
 [discord]
 
 	# Enable Discord

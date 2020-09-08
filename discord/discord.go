@@ -16,23 +16,30 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/xackery/log"
-	"github.com/xackery/talkeq/channel"
 	"github.com/xackery/talkeq/config"
 	"github.com/xackery/talkeq/database"
+	"github.com/xackery/talkeq/request"
+)
+
+const (
+	//ActionMessage means discord sent the message
+	ActionMessage = "message"
 )
 
 // Discord represents a discord connection
 type Discord struct {
-	ctx         context.Context
-	cancel      context.CancelFunc
-	isConnected bool
-	mutex       sync.RWMutex
-	config      config.Discord
-	conn        *discordgo.Session
-	subscribers []func(string, string, int, string, string)
-	id          string
-	users       *database.UserManager
-	guilds      *database.GuildManager
+	ctx           context.Context
+	cancel        context.CancelFunc
+	isConnected   bool
+	mutex         sync.RWMutex
+	config        config.Discord
+	conn          *discordgo.Session
+	subscribers   []func(interface{}) error
+	id            string
+	users         *database.UserManager
+	guilds        *database.GuildManager
+	lastMessageID string
+	lastChannelID string
 }
 
 // New creates a new discord connect
@@ -108,83 +115,20 @@ func (t *Discord) Connect(ctx context.Context) error {
 	go t.loop(ctx)
 
 	t.isConnected = true
-	if t.config.OOC.ListenChannelID == "" && t.config.Auction.ListenChannelID == "" {
-		log.Info().Msgf("discord connected successfully")
-		return nil
-	}
-
-	listenMsg := "for "
-
+	log.Info().Msg("discord connected successfully")
 	var st *discordgo.Channel
-	chatType := channel.OOC
-	if t.config.OOC.ListenChannelID != "" {
-		st, err = t.conn.Channel(t.config.OOC.ListenChannelID)
+	for _, route := range t.config.Routes {
+		st, err = t.conn.Channel(route.Trigger.ChannelID)
 		if err != nil {
-			if strings.Contains(err.Error(), "not snowflake") {
-				log.Error().Msgf("your bot appears to not be allowed to visit channel %s. visit https://discordapp.com/oauth2/authorize?&client_id=%s&scope=bot&permissions=268504080 and authorize", t.config.OOC.ListenChannelID, t.config.ClientID)
-				if runtime.GOOS == "windows" {
-					option := ""
-					fmt.Println("press a key then enter to exit.")
-					fmt.Scan(&option)
-				}
-				os.Exit(1)
+			log.Error().Msgf("your bot appears to not be allowed to listen to route %s's channel %s. visit https://discordapp.com/oauth2/authorize?&client_id=%s&scope=bot&permissions=268504080 and authorize", route.Trigger.ChannelID, t.config.ClientID)
+			if runtime.GOOS == "windows" {
+				option := ""
+				fmt.Println("press a key then enter to exit.")
+				fmt.Scan(&option)
 			}
-			return errors.Wrapf(err, "find %s channel", chatType)
+			os.Exit(1)
 		}
-
-		listenMsg += "OOC chat in #" + st.Name
-	}
-	if t.config.Auction.ListenChannelID != "" {
-		chatType = channel.Auction
-		st, err = t.conn.Channel(t.config.Auction.ListenChannelID)
-		if err != nil {
-			t.snowflakeCheck(err)
-			return errors.Wrapf(err, "find %s channel", chatType)
-		}
-
-		if listenMsg != "for " {
-			listenMsg += ", "
-		}
-		listenMsg += "Auction chat in #" + st.Name
-	}
-	if t.config.General.ListenChannelID != "" {
-		chatType = channel.General
-		st, err = t.conn.Channel(t.config.General.ListenChannelID)
-		if err != nil {
-			t.snowflakeCheck(err)
-			return errors.Wrapf(err, "find %s channel", chatType)
-		}
-
-		if listenMsg != "for " {
-			listenMsg += ", "
-		}
-		listenMsg += "General chat in #" + st.Name
-	}
-	if t.config.Shout.ListenChannelID != "" {
-		chatType = channel.Shout
-		st, err = t.conn.Channel(t.config.Shout.ListenChannelID)
-		if err != nil {
-			t.snowflakeCheck(err)
-			return errors.Wrapf(err, "find %s channel", chatType)
-		}
-
-		if listenMsg != "for " {
-			listenMsg += ", "
-		}
-		listenMsg += "Shout chat in #" + st.Name
-	}
-	if t.config.Guild.ListenChannelID != "" {
-		chatType = channel.Guild
-		st, err = t.conn.Channel(t.config.Guild.ListenChannelID)
-		if err != nil {
-			t.snowflakeCheck(err)
-			return errors.Wrapf(err, "find %s channel", chatType)
-		}
-
-		if listenMsg != "for " {
-			listenMsg += ", "
-		}
-		listenMsg += "Guild chat in #" + st.Name
+		log.Info().Msgf("triggering [discord->%s] chat in #%s", route.Target, st.Name)
 	}
 
 	myUser, err := t.conn.User("@me")
@@ -195,27 +139,11 @@ func (t *Discord) Connect(ctx context.Context) error {
 	t.id = myUser.ID
 	log.Debug().Str("id", t.id).Msg("@me")
 
-	log.Info().Msgf("discord connected successfully, listening %s", listenMsg)
-
 	err = t.StatusUpdate(ctx, 0, "Status: Online")
 	if err != nil {
 		return err
 	}
 	return nil
-}
-
-func (t *Discord) snowflakeCheck(err error) {
-	log := log.New()
-	if !strings.Contains(err.Error(), "not snowflake") {
-		return
-	}
-	log.Error().Msgf("your bot appears to not be allowed to visit channel %s. visit https://discordapp.com/oauth2/authorize?&client_id=%s&scope=bot&permissions=268504080 and authorize", t.config.OOC.ListenChannelID, t.config.ClientID)
-	if runtime.GOOS == "windows" {
-		option := ""
-		fmt.Println("press a key then enter to exit.")
-		fmt.Scan(&option)
-	}
-	os.Exit(1)
 }
 
 func (t *Discord) loop(ctx context.Context) {
@@ -288,83 +216,27 @@ func (t *Discord) Disconnect(ctx context.Context) error {
 	return nil
 }
 
-// Send attempts to send a message through Discord.
-func (t *Discord) Send(ctx context.Context, source string, author string, channelID int, message string, optional string) error {
-	log := log.New()
-	channelName := channel.ToString(channelID)
-	if channelName == "" {
-		return fmt.Errorf("invalid channelID: %d", channelID)
-	}
-
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
-
+// Send sends a message to discord
+func (t *Discord) Send(req request.DiscordSend) error {
 	if !t.config.IsEnabled {
-		log.Warn().Str("author", author).Str("channelName", channelName).Str("message", message).Msgf("discord is disabled")
+		return fmt.Errorf("not enabled")
 	}
 
 	if !t.isConnected {
-		log.Warn().Str("author", author).Str("channelName", channelName).Str("message", message).Msgf("discord is not connected")
-		return nil
+		return fmt.Errorf("not connected")
 	}
 
-	channels := map[string]string{
-		channel.Auction:         t.config.Auction.SendChannelID,
-		channel.OOC:             t.config.OOC.SendChannelID,
-		channel.General:         t.config.General.SendChannelID,
-		channel.PEQEditorSQLLog: t.config.PEQEditorSQLLog.SendChannelID,
-		channel.Admin:           t.config.Admin.SendChannelID,
-		channel.Broadcast:       t.config.Broadcast.SendChannelID,
-		channel.Guild:           "",
-	}
-	finalMessage := fmt.Sprintf("**%s %s:** %s", author, channelName, message)
-	sendChannelID := ""
-	for name, chanID := range channels {
-		if channelID > 5000 { // > 5k channel id's means it's a forced pattern custom message
-			sendChannelID = fmt.Sprintf("%d", channelID)
-			finalMessage = message
-			break
-		}
-
-		if channelName != name {
-			continue
-		}
-
-		sendChannelID = chanID
-		if channelName == channel.PEQEditorSQLLog {
-			finalMessage = fmt.Sprintf("**%s:** ```sql\n%s```", "PEQ Editor SQL Log", message)
-		}
-
-		if channelName == channel.Guild {
-			guildID, err := strconv.Atoi(optional)
-			if err != nil {
-				return errors.Wrapf(err, "send guildID %s %s %s: %s", optional, author, channelName, message)
-			}
-
-			sendChannelID = t.guilds.ChannelID(guildID)
-			if len(sendChannelID) == 0 {
-				return fmt.Errorf("channelID lookup not found for guildID %s %s %s: %s", optional, author, channelName, message)
-			}
-		}
-		break
-	}
-
-	if sendChannelID == "" {
-		log.Warn().Str("author", author).Str("channelName", channelName).Str("message", finalMessage).Msgf("unknown send channel id")
-		return nil
-	}
-
-	_, err := t.conn.ChannelMessageSend(sendChannelID, finalMessage)
+	msg, err := t.conn.ChannelMessageSend(req.ChannelID, req.Message)
 	if err != nil {
-		return errors.Wrapf(err, "send %s %s: %s", author, channelName, finalMessage)
+		return fmt.Errorf("ChannelMessageSend: %w", err)
 	}
-
-	log.Debug().Str("author", author).Str("channelName", channelName).Str("finalMessage", finalMessage).Msg("sent to discord")
+	t.lastMessageID = msg.ID
+	t.lastChannelID = msg.ChannelID
 	return nil
 }
 
 // Subscribe listens for new events on discord
-func (t *Discord) Subscribe(ctx context.Context, onMessage func(source string, author string, channelID int, message string, optional string)) error {
+func (t *Discord) Subscribe(ctx context.Context, onMessage func(interface{}) error) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	t.subscribers = append(t.subscribers, onMessage)
@@ -372,12 +244,13 @@ func (t *Discord) Subscribe(ctx context.Context, onMessage func(source string, a
 }
 
 func (t *Discord) handler(s *discordgo.Session, m *discordgo.MessageCreate) {
+	ctx := context.Background()
 	log := log.New()
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
 	if len(t.subscribers) == 0 {
-		log.Debug().Msg("discord message, but no subscribers to notify, ignoring")
+		log.Debug().Msg("[discord] message, but no subscribers to notify, ignoring")
 		return
 	}
 
@@ -388,46 +261,99 @@ func (t *Discord) handler(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 	msg = sanitize(msg)
 	if len(msg) < 1 {
-		log.Debug().Str("original message", m.ContentWithMentionsReplaced()).Msg("message after sanitize too small, ignoring")
+		log.Debug().Str("original message", m.ContentWithMentionsReplaced()).Msg("[discord] message after sanitize too small, ignoring")
 		return
 	}
 
 	ign = t.users.Name(m.Author.ID)
 	if ign == "" {
-		ign = t.getIGNName(s, m.Author.ID)
+		ign = t.GetIGNName(s, m.Author.ID)
 		//disabled this code since it would cache results and remove dynamics
 		//if ign != "" { //update users database with newly found ign tag
 		//	t.users.Set(m.Author.ID, ign)
 		//}
 	}
 
+	//ignore bot messages
 	if m.Author.ID == t.id {
-		log.Debug().Msgf("discord message from bot id %s ignored (message: %s)", m.Author.ID, msg)
-		return
-	}
-
-	if ign == "" {
-		log.Warn().Msgf("discord message from non-IGN tagged account %s ignored (message: %s)", m.Author.Username, msg)
+		//log.Debug().Msgf("[discord] bot %s ignored (message: %s)", m.Author.ID, msg)
 		return
 	}
 
 	ign = sanitize(ign)
 
-	channelID := 0
-	if t.config.Auction.ListenChannelID == m.ChannelID {
-		channelID = channel.ToInt(channel.Auction)
-	}
-	if t.config.OOC.ListenChannelID == m.ChannelID {
-		channelID = channel.ToInt(channel.OOC)
+	if strings.Index(msg, "!") == 0 {
+		req := request.APICommand{
+			Ctx:                  ctx,
+			FromDiscordName:      m.Author.Username,
+			FromDiscordNameID:    m.Author.ID,
+			FromDiscordChannelID: m.ChannelID,
+			FromDiscordIGN:       ign,
+			Message:              msg,
+		}
+		for _, s := range t.subscribers {
+			err := s(req)
+			if err != nil {
+				log.Warn().Err(err).Msg("[discord->api]")
+			}
+		}
 	}
 
-	if channelID == 0 {
-		log.Warn().Msgf("discord message from unknown channel %s", m.ChannelID)
-		return
-	}
+	for routeIndex, route := range t.config.Routes {
+		if route.ChannelID != m.ChannelID {
+			continue
+		}
 
-	for _, s := range t.subscribers {
-		s("discord", ign, channelID, msg, "")
+		buf := new(bytes.Buffer)
+		if err := route.MessagePatternTemplate().Execute(buf, struct {
+			Name    string
+			Message string
+		}{
+			ign,
+			msg,
+		}); err != nil {
+			log.Warn().Err(err).Int("route", routeIndex).Msg("[discord] execute")
+			continue
+		}
+
+		switch route.Target {
+		case "telnet":
+			req := request.TelnetSend{
+				Ctx:     ctx,
+				Message: buf.String(),
+			}
+			for _, s := range t.subscribers {
+				err := s(req)
+				if err != nil {
+					log.Warn().Err(err).Int("route", routeIndex).Msg("[discord->telnet]")
+				}
+			}
+		case "nats":
+			channelID, err := strconv.Atoi(route.ChannelID)
+			if err != nil {
+				log.Warn().Err(err).Str("channelID", route.ChannelID).Int("route", routeIndex).Msgf("[discord] atoi")
+			}
+
+			guildID, err := strconv.Atoi(route.GuildID)
+			if err != nil {
+				log.Warn().Err(err).Str("guildID", route.GuildID).Int("route", routeIndex).Msgf("[discord] atoi")
+			}
+
+			req := request.NatsSend{
+				Ctx:       ctx,
+				ChannelID: int32(channelID),
+				Message:   buf.String(),
+				GuildID:   int32(guildID),
+			}
+			for _, s := range t.subscribers {
+				err := s(req)
+				if err != nil {
+					log.Warn().Err(err).Int("route", routeIndex).Msg("[discord->nats]")
+				}
+			}
+		default:
+			log.Warn().Int("route", routeIndex).Msgf("[discord] invalid target: %s", route.Target)
+		}
 	}
 }
 
@@ -451,7 +377,8 @@ func (t *Discord) SetChannelName(channelID string, name string) error {
 	return nil
 }
 
-func (t *Discord) getIGNName(s *discordgo.Session, userid string) string {
+// GetIGNName returns an IGN: tagged name from discord if applicable
+func (t *Discord) GetIGNName(s *discordgo.Session, userid string) string {
 	log := log.New()
 	member, err := s.GuildMember(t.config.ServerID, userid)
 	if err != nil {
@@ -479,4 +406,32 @@ func (t *Discord) getIGNName(s *discordgo.Session, userid string) string {
 		}
 	}
 	return ""
+}
+
+// LastSentMessage returns the channelID and message ID of last message sent
+func (t *Discord) LastSentMessage() (channelID string, messageID string, err error) {
+	if !t.config.IsEnabled {
+		return "", "", fmt.Errorf("not enabled")
+	}
+	if !t.isConnected {
+		return "", "", fmt.Errorf("not connected")
+	}
+	return t.lastChannelID, t.lastMessageID, nil
+}
+
+// EditMessage lets you edit a previously sent message
+func (t *Discord) EditMessage(channelID string, messageID string, message string) error {
+	log := log.New()
+	if !t.config.IsEnabled {
+		return fmt.Errorf("not enabled")
+	}
+	if !t.isConnected {
+		return fmt.Errorf("not connected")
+	}
+	msg, err := t.conn.ChannelMessageEdit(channelID, messageID, message)
+	if err != nil {
+		return fmt.Errorf("edit: %w", err)
+	}
+	log.Debug().Msgf("edited message before: %s, after: %s", messageID, msg.ID)
+	return nil
 }
