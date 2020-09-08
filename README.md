@@ -2,7 +2,7 @@
 
 [![GoDoc](https://godoc.org/github.com/xackery/talkeq?status.svg)](https://godoc.org/github.com/xackery/talkeq) [![Go Report Card](https://goreportcard.com/badge/github.com/xackery/talkeq)](https://goreportcard.com/report/github.com/xackery/talkeq)
 
-[![Total alerts](https://img.shields.io/lgtm/alerts/g/xackery/talkeq.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/xackery/talkeq/alerts/) [![Language grade: Go](https://img.shields.io/lgtm/grade/go/g/xackery/talkeq.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/xackery/talkeq/context:go)
+[![Total alerts](https://img.shields.io/lgtm/alerts/g/xackery/talkeq.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/xackery/talkeq/alerts/)
 
 TalkEQ bridges links between everquest and other services. Extends [DiscordEQ](https://github.com/xackery/discordeq).
 
