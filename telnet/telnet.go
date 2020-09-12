@@ -168,6 +168,9 @@ func (t *Telnet) Connect(ctx context.Context) error {
 
 	if !isInitialState && t.config.IsServerAnnounceEnabled && len(t.subscribers) > 0 {
 		for routeIndex, route := range t.config.Routes {
+			if !route.IsEnabled {
+				continue
+			}
 			buf := new(bytes.Buffer)
 			if err := route.MessagePatternTemplate().Execute(buf, struct {
 				Name    string
@@ -191,8 +194,10 @@ func (t *Telnet) Connect(ctx context.Context) error {
 			for _, s := range t.subscribers {
 				err = s(req)
 				if err != nil {
-					log.Warn().Err(err).Msg("[telnet->discord]")
+					log.Warn().Err(err).Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[telnet->discord]")
+					continue
 				}
+				log.Info().Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[telnet->discord]")
 			}
 		}
 
@@ -233,6 +238,9 @@ func (t *Telnet) loop(ctx context.Context) {
 
 		msg = t.convertLinks(msg)
 		for routeIndex, route := range t.config.Routes {
+			if route.Trigger.Custom != "" {
+				continue
+			}
 			pattern, err := regexp.Compile(route.Trigger.Regex)
 			if err != nil {
 				log.Debug().Err(err).Int("route", routeIndex).Msg("compile")
@@ -245,12 +253,16 @@ func (t *Telnet) loop(ctx context.Context) {
 
 			name := ""
 			message := ""
-			if route.Trigger.MessageIndex >= len(matches[0]) {
-				message = matches[0][route.Trigger.MessageIndex]
+			if route.Trigger.MessageIndex > len(matches[0]) {
+				log.Warn().Int("route", routeIndex).Msgf("[telnet] trigger message_index %d greater than matches %d", route.Trigger.MessageIndex, len(matches[0]))
+				continue
 			}
-			if route.Trigger.NameIndex >= len(matches[0]) {
-				name = matches[0][route.Trigger.NameIndex]
+			message = matches[0][route.Trigger.MessageIndex]
+			if route.Trigger.NameIndex > len(matches[0]) {
+				log.Warn().Int("route", routeIndex).Msgf("[telnet] name_index %d greater than matches %d", route.Trigger.MessageIndex, len(matches[0]))
+				continue
 			}
+			name = matches[0][route.Trigger.NameIndex]
 
 			buf := new(bytes.Buffer)
 			if err := route.MessagePatternTemplate().Execute(buf, struct {
@@ -273,16 +285,16 @@ func (t *Telnet) loop(ctx context.Context) {
 				for _, s := range t.subscribers {
 					err = s(req)
 					if err != nil {
-						log.Warn().Err(err).Msg("[eqlog->discord]")
+						log.Warn().Err(err).Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[telnet->discord]")
+						continue
 					}
+					log.Info().Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[telnet->discord]")
 				}
 			default:
 				log.Warn().Msgf("unsupported target type: %s", route.Target)
 				continue
 			}
 		}
-
-		t.mutex.RUnlock()
 	}
 }
 
@@ -343,8 +355,10 @@ func (t *Telnet) Disconnect(ctx context.Context) error {
 			for _, s := range t.subscribers {
 				err = s(req)
 				if err != nil {
-					log.Warn().Err(err).Msg("[telnet->discord]")
+					log.Warn().Err(err).Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[telnet->discord]")
+					continue
 				}
+				log.Info().Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[telnet->discord]")
 			}
 		}
 	}
@@ -352,7 +366,7 @@ func (t *Telnet) Disconnect(ctx context.Context) error {
 }
 
 // Send attempts to send a message through Telnet.
-func (t *Telnet) Send(ctx context.Context, message string) error {
+func (t *Telnet) Send(req request.TelnetSend) error {
 	if !t.config.IsEnabled {
 		return fmt.Errorf("telnet is not enabled")
 	}
@@ -361,7 +375,7 @@ func (t *Telnet) Send(ctx context.Context, message string) error {
 		return fmt.Errorf("telnet is not connected")
 	}
 
-	err := t.sendLn(message)
+	err := t.sendLn(req.Message)
 	if err != nil {
 		return fmt.Errorf("send: %w", err)
 	}

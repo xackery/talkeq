@@ -42,8 +42,6 @@ const (
 
 // New creates a new api endpoint
 func New(ctx context.Context, config config.API, userManager *database.UserManager, guildManager *database.GuildManager, discord *discord.Discord) (*API, error) {
-	log := log.New()
-	var err error
 	ctx, cancel := context.WithCancel(ctx)
 	t := &API{
 		ctx:            ctx,
@@ -56,16 +54,11 @@ func New(ctx context.Context, config config.API, userManager *database.UserManag
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	log.Debug().Msg("verifying API configuration")
-
 	if !config.IsEnabled {
 		return t, nil
 	}
 
-	if config.Host == "" {
-		config.Host = "127.0.0.1:9933"
-	}
-
+	var err error
 	if config.APIRegister.IsEnabled {
 		t.registerManager, err = database.NewRegisterManager(ctx, &config)
 		if err != nil {
@@ -171,7 +164,10 @@ func (t *API) Command(req request.APICommand) error {
 			err = s(reply)
 			if err != nil {
 				log.Warn().Err(err).Msg("[api->discord] reply to !register")
+				continue
 			}
+			log.Info().Str("message", reply.Message).Msg("[api->discord] !register")
+
 		}
 		channelID, messageID, err := t.discord.LastSentMessage()
 		if err != nil {

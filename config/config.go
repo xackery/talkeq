@@ -6,7 +6,6 @@ import (
 	"os"
 	"runtime"
 	"sort"
-	"text/template"
 	"time"
 
 	"github.com/jbsmith7741/toml"
@@ -30,195 +29,12 @@ type Config struct {
 	SQLReport          SQLReport `toml:"sql_report" desc:"SQL Report can be used to show stats on discord\n# An ideal way to set this up is create a private voice channel\n# Then bind it to various queries"`
 }
 
-// API represents an API listening service
-type API struct {
-	IsEnabled   bool        `toml:"enabled" desc:"Enable API service"`
-	Host        string      `toml:"host" desc:"What address and port to bind to (default is 127.0.0.1, so only local traffic can talk to it)"`
-	APIRegister APIRegister `toml:"register" desc:"!register command"`
-}
-
-// APIRegister is used for Register command management
-type APIRegister struct {
-	IsEnabled                bool   `toml:"enabled" desc:"Enable !register command"`
-	RegistrationDatabasePath string `toml:"registration_database" desc:"When a player requests to register, this database stores the request"`
-}
-
-// Discord represents config settings for discord
-type Discord struct {
-	IsEnabled       bool           `toml:"enabled" desc:"Enable Discord"`
-	Token           string         `toml:"bot_token" desc:"Required. Found at https://discordapp.com/developers/ under your app's bot's section"`
-	ServerID        string         `toml:"server_id" desc:"Required. In Discord, right click the circle button representing your server, and Copy ID, and paste it here."`
-	ClientID        string         `toml:"client_id" desc:"Required. Found at https://discordapp.com/developers/ under your app's main page"`
-	BotStatus       string         `toml:"bot_status" desc:"Status to show below bot. e.g. \"Playing EQ: 123 Online\"\n# {{.PlayerCount}} to show playercount"`
-	CommandChannels []string       `toml:"command_channels" desc:"Commands are parsed in provided channel ids"`
-	Routes          []DiscordRoute `toml:"routes" desc:"When a message is created in discord, how to route it"`
-}
-
-// DiscordRoute is custom for discord triggering
-type DiscordRoute struct {
-	IsEnabled              bool           `toml:"enabled" desc:"Is route enabled?"`
-	Trigger                DiscordTrigger `toml:"discord_trigger" desc:"condition to trigger route"`
-	Target                 string         `toml:"target" desc:"target service, e.g. telnet"`
-	ChannelID              string         `toml:"channel_id" desc:"Destination channel ID, e.g. OOC is 260"`
-	GuildID                string         `toml:"guild_id" desc:"Optional, Destination guild ID"`
-	MessagePattern         string         `toml:"message_pattern" desc:"Destination message in. E.g. {{.Name}} says {{.ChannelName}}, '{{.Message}}"`
-	messagePatternTemplate *template.Template
-}
-
-// DiscordTrigger is custom discord triggering
-type DiscordTrigger struct {
-	ChannelID string `toml:"channel_id" desc:"source channel ID to trigger event"`
-}
-
-// MessagePatternTemplate returns a template for provided route
-func (r *DiscordRoute) MessagePatternTemplate() *template.Template {
-	return r.messagePatternTemplate
-}
-
-// Route is how to route telnet messages
-type Route struct {
-	IsEnabled              bool    `toml:"enabled" desc:"Is route enabled?"`
-	Trigger                Trigger `toml:"trigger" desc:"condition to trigger route"`
-	Target                 string  `toml:"target" desc:"target service, e.g. telnet"`
-	ChannelID              string  `toml:"channel_id" desc:"Destination channel ID, e.g. OOC is 260"`
-	GuildID                string  `toml:"guild_id" desc:"Optional, Destination guild ID"`
-	MessagePattern         string  `toml:"message_pattern" desc:"Destination message in. E.g. {{.Name}} says {{.ChannelName}}, '{{.Message}}"`
-	messagePatternTemplate *template.Template
-}
-
 // Trigger is a regex pattern matching
 type Trigger struct {
 	Regex        string `toml:"telnet_pattern" desc:"Input telnet trigger regex"`
 	NameIndex    int    `toml:"name_index" desc:"Name is found in this regex index grouping"`
 	MessageIndex int    `toml:"message_index" desc:"Message is found in this regex index grouping"`
 	Custom       string `toml:"custom,omitempty" dec:"Custom event defined in code"`
-}
-
-// MessagePatternTemplate returns a template for provided route
-func (r *Route) MessagePatternTemplate() *template.Template {
-	return r.messagePatternTemplate
-}
-
-// Telnet represents config settings for telnet
-type Telnet struct {
-	IsEnabled               bool    `toml:"enabled" desc:"Enable Telnet"`
-	IsLegacy                bool    `toml:"legacy" desc:"EQEMU servers that run 0.8.0 versions need this for item link support"`
-	Host                    string  `toml:"host" desc:"Host where telnet is found"`
-	Username                string  `toml:"username" desc:"Optional. Username to connect to telnet to. (By default, newer telnet clients will auto succeed if localhost)"`
-	Password                string  `toml:"password" desc:"Optional. Password to connect to telnet to. (By default, newer telnet clients will auto succeed if localhost)"`
-	Routes                  []Route `toml:"routes" desc:"Routes from telnet to other services"`
-	ItemURL                 string  `toml:"item_url" desc:"Optional. Converts item URLs to provided field. defaults to allakhazam. To disable, change to \n# default: \"http://everquest.allakhazam.com/db/item.html?item=\""`
-	IsServerAnnounceEnabled bool    `toml:"announce_server_status" desc:"Optional. Annunce when a server changes state to OOC channel (Server UP/Down)"`
-	MessageDeadline         string  `toml:"message_deadline" desc:"How long to wait for messages. (Advanced users only)\n# defaut: 10s"`
-	messageDeadlineDuration time.Duration
-	IsOOCAuctionEnabled     bool           `toml:"convert_ooc_auction" desc:"if a OOC message uses prefix WTS or WTB, convert them into auction"`
-	Entries                 []*TelnetEntry `toml:"entries" desc:"Entries is full of custom pattern detection. Useful for emotes and custom messages"`
-}
-
-// TelnetEntry represents telnet event pattern detection
-type TelnetEntry struct {
-	ChannelID              string `toml:"channel_id" desc:"channel id to relay telnet event to"`
-	Regex                  string `toml:"regex" desc:"regex to look for in message"`
-	MessagePattern         string `toml:"pattern" desc:"Pattern to send message\n# Variables: {{.Msg}}, {{.Author}}, {{.ChannelNumber}}, {{.RegexGroup1}}, {{.RegexGroup2}} etc for submatch () patterns"`
-	MessagePatternTemplate *template.Template
-}
-
-// Nats represents config settings for NATS
-type Nats struct {
-	IsEnabled           bool `toml:"enabled"`
-	Host                string
-	IsOOCAuctionEnabled bool    `toml:"convert_ooc_auction"`
-	ItemURL             string  `toml:"item_url"`
-	Routes              []Route `toml:"routes" desc:"Routes from nats to other services"`
-}
-
-// EQLog represents config settings for the EQ live eqlog file
-type EQLog struct {
-	IsEnabled                   bool    `toml:"enabled"`
-	Path                        string  `toml:"path"`
-	Routes                      []Route `toml:"routes" desc:"Routes from EQLog to other services"`
-	IsGeneralChatAuctionEnabled bool    `toml:"convert_general_auction" desc:"convert WTS and WTB messages in general chat to auction channel"`
-}
-
-// PEQEditor represents config settings for the PEQ editor service
-type PEQEditor struct {
-	SQL    PEQEditorSQL `toml:"sql"`
-	Routes []Route      `toml:"routes" desc:"Routes from PEQ Editor to other services"`
-}
-
-// PEQEditorSQL is for config settings specific to the PEQ Editor SQL service
-type PEQEditorSQL struct {
-	IsEnabled   bool    `toml:"enabled"`
-	Path        string  `toml:"path"`
-	FilePattern string  `toml:"file_pattern"`
-	Routes      []Route `toml:"routes" desc:"Routes from peq editor to other services"`
-}
-
-// SQLReport is used for reporting SQL data to discord
-type SQLReport struct {
-	IsEnabled bool `toml:"enabled"`
-	Host      string
-	Username  string
-	Password  string
-	Database  string
-	Entries   []*SQLReportEntries `toml:"entries"`
-	Routes    []SQLReportRoute    `toml:"routes" desc:"Routes from telnet to other services"`
-}
-
-// SQLReportRoute is how to route SQL report messages
-type SQLReportRoute struct {
-	IsEnabled              bool             `toml:"enabled" desc:"Is route enabled?"`
-	Trigger                SQLReportTrigger `toml:"trigger" desc:"condition to trigger route"`
-	Target                 string           `toml:"target" desc:"target service, e.g. telnet"`
-	ChannelID              string           `toml:"channel_id" desc:"Destination channel ID, e.g. OOC is 260"`
-	GuildID                string           `toml:"guild_id" desc:"Optional, Destination guild ID"`
-	MessagePattern         string           `toml:"message_pattern" desc:"Destination message in. E.g. {{.Name}} says {{.ChannelName}}, '{{.Message}}"`
-	messagePatternTemplate *template.Template
-}
-
-// SQLReportTrigger is a regex pattern matching
-type SQLReportTrigger struct {
-	Query string `toml:"query" desc:"query to send to SQL"`
-}
-
-//SQLReportEntries is used for entries in a sql report
-type SQLReportEntries struct {
-	ChannelID       string `toml:"channel_id"`
-	Query           string
-	Pattern         string
-	PatternTemplate *template.Template
-	Refresh         string
-	RefreshDuration time.Duration
-	// Last time a report was successfully sent
-	NextReport time.Time
-	Text       string
-	Index      int
-}
-
-// KeepAliveRetryDuration returns the converted retry rate
-func (c *Config) KeepAliveRetryDuration() time.Duration {
-	retryDuration, err := time.ParseDuration(c.KeepAliveRetry)
-	if err != nil {
-		return 10 * time.Second
-	}
-
-	if retryDuration < 10*time.Second {
-		return 10 * time.Second
-	}
-	return retryDuration
-}
-
-// MessageDeadlineDuration returns the converted retry rate
-func (c *Telnet) MessageDeadlineDuration() time.Duration {
-	deadlineDuration, err := time.ParseDuration(c.MessageDeadline)
-	if err != nil {
-		return 10 * time.Second
-	}
-
-	if deadlineDuration < 10*time.Second {
-		return 10 * time.Second
-	}
-	return deadlineDuration
 }
 
 // NewConfig creates a new configuration
@@ -256,7 +72,6 @@ func NewConfig(ctx context.Context) (*Config, error) {
 	}
 
 	if isNewConfig {
-
 		enc := toml.NewEncoder(f)
 		enc.Encode(getDefaultConfig())
 
@@ -273,7 +88,6 @@ func NewConfig(ctx context.Context) (*Config, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "decode talkeq.conf")
 	}
-
 	fw, err := os.Create("talkeq2.toml")
 	if err != nil {
 		return nil, fmt.Errorf("talkeq: %w", err)
@@ -286,50 +100,72 @@ func NewConfig(ctx context.Context) (*Config, error) {
 		return nil, fmt.Errorf("encode: %w", err)
 	}
 
-	if cfg.SQLReport.IsEnabled {
-		for i, e := range cfg.SQLReport.Entries {
-			e.Index = i
-
-			e.RefreshDuration, err = time.ParseDuration(e.Refresh)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to parse duration %s for sqlreport pattern %s", e.Refresh, e.Pattern)
-			}
-			if e.RefreshDuration < 30*time.Second {
-				return nil, fmt.Errorf("duration %s is lower than 30s for sqlreport pattern %s", e.Refresh, e.Pattern)
-			}
-
-			if e.PatternTemplate, err = template.New("pattern").Parse(e.Pattern); err != nil {
-				return nil, errors.Wrapf(err, "failed to parse pattern %s for sqlreport", e.Pattern)
-			}
-			e.NextReport = time.Now()
-		}
-	}
-	if cfg.Telnet.IsEnabled {
-		for _, e := range cfg.Telnet.Entries {
-			if e.MessagePatternTemplate, err = template.New("pattern").Parse(e.MessagePattern); err != nil {
-				return nil, errors.Wrapf(err, "failed to parse pattern %s for telnet", e.MessagePattern)
-			}
-		}
-	}
-
-	sort.SliceStable(cfg.SQLReport.Entries, func(i, j int) bool {
-		return cfg.SQLReport.Entries[i].Index > cfg.SQLReport.Entries[j].Index
-	})
-
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if cfg.Debug {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}
+	sort.SliceStable(cfg.SQLReport.Entries, func(i, j int) bool {
+		return cfg.SQLReport.Entries[i].Index > cfg.SQLReport.Entries[j].Index
+	})
 
-	if cfg.UsersDatabasePath == "" {
-		cfg.UsersDatabasePath = "./users.txt"
-	}
-
-	if cfg.GuildsDatabasePath == "" {
-		cfg.GuildsDatabasePath = "./guilds.txt"
+	err = cfg.Verify()
+	if err != nil {
+		return nil, fmt.Errorf("verify: %w", err)
 	}
 
 	return &cfg, nil
+}
+
+// Verify returns an error if configuration appears off
+func (c *Config) Verify() error {
+
+	if c.UsersDatabasePath == "" {
+		c.UsersDatabasePath = "talkeq_users.toml"
+	}
+
+	if c.GuildsDatabasePath == "" {
+		c.GuildsDatabasePath = "./guilds.txt"
+	}
+
+	if c.IsKeepAliveEnabled && c.KeepAliveRetryDuration().Seconds() < 2 {
+		c.KeepAliveRetry = "30s"
+	}
+
+	if err := c.API.Verify(); err != nil {
+		return fmt.Errorf("api: %w", err)
+	}
+	if err := c.Discord.Verify(); err != nil {
+		return fmt.Errorf("discord: %w", err)
+	}
+	if err := c.EQLog.Verify(); err != nil {
+		return fmt.Errorf("eqlog: %w", err)
+	}
+	if err := c.Nats.Verify(); err != nil {
+		return fmt.Errorf("nats: %w", err)
+	}
+	if err := c.PEQEditor.Verify(); err != nil {
+		return fmt.Errorf("peqeditor: %w", err)
+	}
+	if err := c.SQLReport.Verify(); err != nil {
+		return fmt.Errorf("sqlreport: %w", err)
+	}
+	if err := c.Telnet.Verify(); err != nil {
+		return fmt.Errorf("telnet: %w", err)
+	}
+	return nil
+}
+
+// KeepAliveRetryDuration returns the converted retry rate
+func (c *Config) KeepAliveRetryDuration() time.Duration {
+	retryDuration, err := time.ParseDuration(c.KeepAliveRetry)
+	if err != nil {
+		return 10 * time.Second
+	}
+
+	if retryDuration < 10*time.Second {
+		return 10 * time.Second
+	}
+	return retryDuration
 }
 
 func getDefaultConfig() Config {
@@ -381,7 +217,7 @@ func getDefaultConfig() Config {
 			MessageIndex: 2,
 		},
 		Target:         "discord",
-		ChannelID:      "260",
+		ChannelID:      "INSERTOOCCHANNELHERE",
 		MessagePattern: "{{.Name}} **OOC**: {{.Message}}",
 	})
 
@@ -497,7 +333,7 @@ func getDefaultConfig() Config {
 		MessagePattern: "{{.Name}} **OOC**: {{.Message}}",
 	})
 
-	cfg.PEQEditor.Routes = append(cfg.EQLog.Routes, Route{
+	cfg.PEQEditor.SQL.Routes = append(cfg.EQLog.Routes, Route{
 		IsEnabled: true,
 		Trigger: Trigger{
 			Regex:        `(.*)`,

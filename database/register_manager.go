@@ -79,11 +79,12 @@ func (u *RegisterManager) loop(ctx context.Context, watcher *fsnotify.Watcher) {
 			if event.Op&fsnotify.Write != fsnotify.Write {
 				continue
 			}
-			log.Debug().Msg("registers database modified, reloading")
+			continue
+			/*log.Debug().Msg("registers database modified, reloading")
 			err := u.reloadDatabase()
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to reload registers database")
-			}
+			}*/
 		case err, ok := <-watcher.Errors:
 			if !ok {
 				return
@@ -177,9 +178,10 @@ func (u *RegisterManager) FindByCode(code string) (entry RegisterEntry, err erro
 
 // QueuedEntries returns a list of items that need to be relayed in EQ
 func (u *RegisterManager) QueuedEntries() (entries []RegisterEntry, err error) {
-
+	log := log.New()
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
+	log.Debug().Int("registrations", len(u.db.Registrations)).Msg("[api]")
 	for _, entry := range u.db.Registrations {
 		if entry.Timeout < time.Now().Unix() {
 			continue

@@ -46,10 +46,6 @@ func New(ctx context.Context) (*Client, error) {
 		return nil, errors.Wrap(err, "config")
 	}
 
-	if c.config.IsKeepAliveEnabled && c.config.KeepAliveRetryDuration().Seconds() < 2 {
-		c.config.KeepAliveRetry = "30s"
-	}
-
 	userManager, err := database.NewUserManager(ctx, c.config)
 	if err != nil {
 		return nil, errors.Wrap(err, "usermanager")
@@ -262,6 +258,10 @@ func (c *Client) onMessage(rawReq interface{}) error {
 		err = c.api.Command(rawReq.(request.APICommand))
 	case request.DiscordSend:
 		err = c.discord.Send(rawReq.(request.DiscordSend))
+	case request.NatsSend:
+		err = c.nats.Send(rawReq.(request.NatsSend))
+	case request.TelnetSend:
+		err = c.telnet.Send(rawReq.(request.TelnetSend))
 	default:
 		return fmt.Errorf("unknown request type")
 	}

@@ -219,8 +219,10 @@ func (t *Nats) onChannelMessage(m *nats.Msg) {
 			for _, s := range t.subscribers {
 				err = s(req)
 				if err != nil {
-					log.Warn().Err(err).Msg("[nats->discord]")
+					log.Warn().Err(err).Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[nats->discord]")
+					continue
 				}
+				log.Info().Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[nats->discord]")
 			}
 			continue
 		}
@@ -244,8 +246,10 @@ func (t *Nats) onChannelMessage(m *nats.Msg) {
 		for _, s := range t.subscribers {
 			err = s(req)
 			if err != nil {
-				log.Warn().Err(err).Msg("[nats->discord]")
+				log.Warn().Err(err).Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[nats->discord]")
+				continue
 			}
+			log.Info().Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[nats->discord]")
 		}
 	}
 
@@ -285,6 +289,9 @@ func (t *Nats) onAdminMessage(m *nats.Msg) {
 	}
 
 	for routeIndex, route := range t.config.Routes {
+		if !route.IsEnabled {
+			continue
+		}
 		if route.Trigger.Custom != "admin" {
 			continue
 		}
@@ -308,8 +315,10 @@ func (t *Nats) onAdminMessage(m *nats.Msg) {
 		for _, s := range t.subscribers {
 			err = s(req)
 			if err != nil {
-				log.Warn().Err(err).Msg("[nats->discord]")
+				log.Warn().Err(err).Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[nats->discord]")
+				continue
 			}
+			log.Info().Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[nats->discord]")
 		}
 	}
 }

@@ -146,7 +146,9 @@ func (t *PEQEditorSQL) loop(ctx context.Context) {
 		}
 
 		for routeIndex, route := range t.config.Routes {
-
+			if !route.IsEnabled {
+				continue
+			}
 			pattern, err := regexp.Compile(route.Trigger.Regex)
 			if err != nil {
 				log.Debug().Err(err).Int("route", routeIndex).Msg("compile")
@@ -187,8 +189,10 @@ func (t *PEQEditorSQL) loop(ctx context.Context) {
 				for _, s := range t.subscribers {
 					err = s(req)
 					if err != nil {
-						log.Warn().Err(err).Msg("[eqlog->discord]")
+						log.Warn().Err(err).Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[peqeditorsql->discord]")
+						continue
 					}
+					log.Info().Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[peqeditorsql->discord]")
 				}
 			default:
 				log.Warn().Msgf("unsupported target type: %s", route.Target)

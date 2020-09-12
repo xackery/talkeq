@@ -276,7 +276,7 @@ func (t *Discord) handler(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	//ignore bot messages
 	if m.Author.ID == t.id {
-		//log.Debug().Msgf("[discord] bot %s ignored (message: %s)", m.Author.ID, msg)
+		log.Debug().Msgf("[discord] bot %s ignored (message: %s)", m.Author.ID, msg)
 		return
 	}
 
@@ -296,26 +296,39 @@ func (t *Discord) handler(s *discordgo.Session, m *discordgo.MessageCreate) {
 			if err != nil {
 				log.Warn().Err(err).Msg("[discord->api]")
 			}
+			log.Info().Str("from", m.Author.Username).Str("message", msg).Msg("[discord->api]")
 		}
 	}
 
+	if len(ign) == 0 {
+		log.Warn().Msg("[discord] ign not found, discarding")
+		return
+	}
+	routes := 0
 	for routeIndex, route := range t.config.Routes {
-		if route.ChannelID != m.ChannelID {
+		if !route.IsEnabled {
+			continue
+		}
+		if route.Trigger.ChannelID != m.ChannelID {
 			continue
 		}
 
 		buf := new(bytes.Buffer)
+
 		if err := route.MessagePatternTemplate().Execute(buf, struct {
-			Name    string
-			Message string
+			Name      string
+			Message   string
+			ChannelID string
 		}{
 			ign,
 			msg,
+			route.ChannelID,
 		}); err != nil {
 			log.Warn().Err(err).Int("route", routeIndex).Msg("[discord] execute")
 			continue
 		}
 
+		routes++
 		switch route.Target {
 		case "telnet":
 			req := request.TelnetSend{
@@ -325,18 +338,23 @@ func (t *Discord) handler(s *discordgo.Session, m *discordgo.MessageCreate) {
 			for _, s := range t.subscribers {
 				err := s(req)
 				if err != nil {
-					log.Warn().Err(err).Int("route", routeIndex).Msg("[discord->telnet]")
+					log.Warn().Err(err).Str("message", req.Message).Int("route", routeIndex).Msg("[discord->telnet]")
+					continue
 				}
+				log.Info().Str("message", req.Message).Int("route", routeIndex).Msg("[discord->telnet]")
 			}
 		case "nats":
 			channelID, err := strconv.Atoi(route.ChannelID)
 			if err != nil {
-				log.Warn().Err(err).Str("channelID", route.ChannelID).Int("route", routeIndex).Msgf("[discord] atoi")
+				log.Warn().Err(err).Str("channelID", route.ChannelID).Int("route", routeIndex).Msgf("[discord->nats] channelID")
 			}
 
-			guildID, err := strconv.Atoi(route.GuildID)
-			if err != nil {
-				log.Warn().Err(err).Str("guildID", route.GuildID).Int("route", routeIndex).Msgf("[discord] atoi")
+			var guildID int
+			if len(route.GuildID) > 0 {
+				guildID, err = strconv.Atoi(route.GuildID)
+				if err != nil {
+					log.Warn().Err(err).Str("guildID", route.GuildID).Int("route", routeIndex).Msgf("[discord->nats] atoi guildID")
+				}
 			}
 
 			req := request.NatsSend{
@@ -348,12 +366,16 @@ func (t *Discord) handler(s *discordgo.Session, m *discordgo.MessageCreate) {
 			for _, s := range t.subscribers {
 				err := s(req)
 				if err != nil {
-					log.Warn().Err(err).Int("route", routeIndex).Msg("[discord->nats]")
+					log.Warn().Err(err).Str("message", req.Message).Int("route", routeIndex).Msg("[discord->nats]")
 				}
+				log.Info().Str("message", req.Message).Int("route", routeIndex).Msg("[discord->nats]")
 			}
 		default:
 			log.Warn().Int("route", routeIndex).Msgf("[discord] invalid target: %s", route.Target)
 		}
+	}
+	if routes == 0 {
+		log.Debug().Msg("message discarded, not routes match")
 	}
 }
 
