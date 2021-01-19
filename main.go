@@ -21,7 +21,7 @@ func main() {
 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	}
 	if Version == "" {
-		Version = "1.x.x EXPERIMENTAL"
+		Version = "1.x.x"
 	}
 	log.Info().Msgf("starting talkeq %s", Version)
 

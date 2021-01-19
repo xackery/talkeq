@@ -135,7 +135,7 @@ func (t *Nats) Send(ctx context.Context, source string, author string, channelID
 	}
 	channelMessage := &pb.ChannelMessage{
 		IsEmote: true,
-		Message: fmt.Sprintf("%s says from discord, '%s'", author, message),
+		Message: fmt.Sprintf("%s says from Discord, '%s'", author, message),
 		ChanNum: 260,
 		Type:    260,
 	}

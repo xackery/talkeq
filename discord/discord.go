@@ -310,7 +310,7 @@ func (t *Discord) Send(ctx context.Context, source string, author string, channe
 		channel.Admin:           t.config.Admin.SendChannelID,
 		channel.Guild:           "",
 	}
-	finalMessage := fmt.Sprintf("**%s %s:** %s", author, channelName, message)
+	finalMessage := fmt.Sprintf("**%s:** %s", author, message)
 	sendChannelID := ""
 	for name, chanID := range channels {
 		if channelName != name {
@@ -343,7 +343,7 @@ func (t *Discord) Send(ctx context.Context, source string, author string, channe
 
 	_, err := t.conn.ChannelMessageSend(sendChannelID, finalMessage)
 	if err != nil {
-		return errors.Wrapf(err, "send %s %s: %s", author, channelName, message)
+		return errors.Wrapf(err, "send %s: %s", author, message)
 	}
 
 	log.Info().Str("author", author).Str("channelName", channelName).Str("message", message).Msg("sent to discord")
@@ -413,7 +413,7 @@ func (t *Discord) handler(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	for _, s := range t.subscribers {
-		s("discord", ign, channelID, msg, "")
+		s("Discord", ign, channelID, msg, "")
 	}
 }
 
