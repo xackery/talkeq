@@ -1,4 +1,4 @@
-talkeq.conf
+*.conf
 users.txt
 guilds.txt
 *.sql
@@ -37,3 +37,5 @@ _testmain.go
 *.exe
 *.test
 *.prof
+
+*.toml

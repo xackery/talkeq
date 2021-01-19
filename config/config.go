@@ -3,130 +3,38 @@ package config
 import (
 	"context"
 	"fmt"
-	"html/template"
 	"os"
 	"runtime"
 	"sort"
 	"time"
 
-	"github.com/BurntSushi/toml"
+	"github.com/jbsmith7741/toml"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 )
 
-type duration struct {
-	time.Duration
-}
-
-func (d *duration) UnmarshalText(text []byte) error {
-	var err error
-	d.Duration, err = time.ParseDuration(string(text))
-	return err
-}
-
 // Config represents a configuration parse
 type Config struct {
-	Debug              bool
-	IsKeepAliveEnabled bool     `toml:"keep_alive"`
-	KeepAliveRetry     duration `toml:"keep_alive_retry"`
-	Discord            Discord
-	Telnet             Telnet
-	EQLog              EQLog
+	Debug              bool      `toml:"debug" desc:"TalkEQ Configuration\n\n# Debug messages are displayed. This will cause console to be more verbose, but also more informative"`
+	IsKeepAliveEnabled bool      `toml:"keep_alive" desc:"Keep all connections alive?\n# If false, endpoint disconnects will not self repair\n# Not recommended to turn off except in advanced cases"`
+	KeepAliveRetry     string    `toml:"keep_alive_retry" desc:"How long before retrying to connect (requires keep_alive = true)\n# default: 10s"`
+	UsersDatabasePath  string    `toml:"users_database" desc:"Users by ID are mapped to their display names via the raw text file called users database\n# If users database file does not exist, a new one is created\n# This file is actively monitored. if you edit it while talkeq is running, it will reload the changes instantly\n# This file overrides the IGN: playerName role tags in discord\n# If a user is found on this list, it will fall back to check for IGN tags"`
+	GuildsDatabasePath string    `toml:"guilds_database" desc:"** Only supported by NATS **\n# Guilds by ID are mapped to their database ID via the raw text file called guilds database\n# If guilds database file does not exist, and NATS is enabled, a new one is created\n# This file is actively monitored. if you edit it while talkeq is running, it will reload the changes instantly"`
+	API                API       `toml:"api" desc:"API is a service to allow external tools to talk to TalkEQ via HTTP requests.\n# It uses Restful style (JSON) with a /api suffix for all endpoints"`
+	Discord            Discord   `toml:"discord" desc:"Discord is a chat service that you can listen and relay EQ chat with"`
+	Telnet             Telnet    `toml:"telnet" desc:"Telnet is a service eqemu/server can use, that relays messages over"`
+	EQLog              EQLog     `toml:"eqlog" desc:"EQ Log is used to parse everquest client logs. Primarily for live EQ, non server owners"`
 	PEQEditor          PEQEditor `toml:"peq_editor"`
-	Nats               Nats
-	SQLReport          SQLReport `toml:"sql_report"`
-	UsersDatabasePath  string    `toml:"users_database"`
-	GuildsDatabasePath string    `toml:"guilds_database"`
+	Nats               Nats      `toml:"nats" desc:"NATS is a custom alternative to telnet\n# that a very limited number of eqemu\n# servers utilize. Chances are, you can ignore"`
+	SQLReport          SQLReport `toml:"sql_report" desc:"SQL Report can be used to show stats on discord\n# An ideal way to set this up is create a private voice channel\n# Then bind it to various queries"`
 }
 
-// Discord represents config settings for discord
-type Discord struct {
-	IsEnabled       bool           `toml:"enabled"`
-	OOC             DiscordChannel `toml:"ooc"`
-	Auction         DiscordChannel `toml:"auction"`
-	Guild           DiscordChannel `toml:"guild"`
-	Shout           DiscordChannel `toml:"shout"`
-	General         DiscordChannel `toml:"general"`
-	Admin           DiscordChannel `toml:"admin"`
-	PEQEditorSQLLog DiscordChannel `toml:"peq_editor_sql_log"`
-	Token           string         `toml:"bot_token"`
-	ServerID        string         `toml:"server_id"`
-	ClientID        string         `toml:"client_id"`
-	BotStatus       string         `toml:"bot_status"`
-}
-
-// DiscordChannel represents a discord channel
-type DiscordChannel struct {
-	SendChannelID   string `toml:"send_channel_id"`
-	ListenChannelID string `toml:"listen_channel_id"`
-}
-
-// Telnet represents config settings for telnet
-type Telnet struct {
-	IsEnabled               bool `toml:"enabled"`
-	IsLegacy                bool `toml:"legacy"`
-	Host                    string
-	Username                string
-	Password                string
-	ItemURL                 string   `toml:"item_url"`
-	IsServerAnnounceEnabled bool     `toml:"announce_server_status"`
-	MessageDeadline         duration `toml:"message_deadline"`
-	IsOOCAuctionEnabled     bool     `toml:"convert_ooc_auction"`
-}
-
-// Nats represents config settings for NATS
-type Nats struct {
-	IsEnabled           bool `toml:"enabled"`
-	Host                string
-	IsOOCAuctionEnabled bool   `toml:"convert_ooc_auction"`
-	ItemURL             string `toml:"item_url"`
-}
-
-// EQLog represents config settings for the EQ live eqlog file
-type EQLog struct {
-	IsEnabled                   bool   `toml:"enabled"`
-	Path                        string `toml:"path"`
-	IsGeneralChatAuctionEnabled bool   `toml:"convert_general_auction"`
-	IsAuctionEnabled            bool   `toml:"listen_auction"`
-	IsOOCEnabled                bool   `toml:"listen_ooc"`
-	IsShoutEnabled              bool   `toml:"listen_shout"`
-	IsGeneralEnabled            bool   `toml:"listen_general"`
-}
-
-// PEQEditor represents config settings for the PEQ editor service
-type PEQEditor struct {
-	SQL PEQEditorSQL `toml:"sql"`
-}
-
-// PEQEditorSQL is for config settings specific to the PEQ Editor SQL service
-type PEQEditorSQL struct {
-	IsEnabled   bool   `toml:"enabled"`
-	Path        string `toml:"path"`
-	FilePattern string `toml:"file_pattern"`
-}
-
-// SQLReport is used for reporting SQL data to discord
-type SQLReport struct {
-	IsEnabled bool `toml:"enabled"`
-	Host      string
-	Username  string
-	Password  string
-	Database  string
-	Entries   []*SQLReportEntries `toml:"entries"`
-}
-
-//SQLReportEntries is used for entries in a sql report
-type SQLReportEntries struct {
-	ChannelID       string `toml:"channel_id"`
-	Query           string
-	Pattern         string
-	PatternTemplate *template.Template
-	Refresh         string
-	RefreshDuration time.Duration
-	// Last time a report was successfully sent
-	NextReport time.Time
-	Text       string
-	Index      int
+// Trigger is a regex pattern matching
+type Trigger struct {
+	Regex        string `toml:"telnet_pattern" desc:"Input telnet trigger regex"`
+	NameIndex    int    `toml:"name_index" desc:"Name is found in this regex index grouping"`
+	MessageIndex int    `toml:"message_index" desc:"Message is found in this regex index grouping"`
+	Custom       string `toml:"custom,omitempty" dec:"Custom event defined in code"`
 }
 
 // NewConfig creates a new configuration
@@ -164,10 +72,9 @@ func NewConfig(ctx context.Context) (*Config, error) {
 	}
 
 	if isNewConfig {
-		_, err = f.WriteString(defaultConfig)
-		if err != nil {
-			return nil, errors.Wrap(err, "write new talkeq.conf")
-		}
+		enc := toml.NewEncoder(f)
+		enc.Encode(getDefaultConfig())
+
 		fmt.Println("a new talkeq.conf file was created. Please open this file and configure talkeq, then run it again.")
 		if runtime.GOOS == "windows" {
 			option := ""
@@ -181,42 +88,290 @@ func NewConfig(ctx context.Context) (*Config, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "decode talkeq.conf")
 	}
-
-	if cfg.SQLReport.IsEnabled {
-		for i, e := range cfg.SQLReport.Entries {
-			e.Index = i
-
-			e.RefreshDuration, err = time.ParseDuration(e.Refresh)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to parse duration %s for sqlreport pattern %s", e.Refresh, e.Pattern)
-			}
-			if e.RefreshDuration < 30*time.Second {
-				return nil, fmt.Errorf("duration %s is lower than 30s for sqlreport pattern %s", e.Refresh, e.Pattern)
-			}
-
-			if e.PatternTemplate, err = template.New("pattern").Parse(e.Pattern); err != nil {
-				return nil, errors.Wrapf(err, "failed to parse pattern %s for sqlreport", e.Pattern)
-			}
-			e.NextReport = time.Now()
-		}
+	fw, err := os.Create("talkeq2.toml")
+	if err != nil {
+		return nil, fmt.Errorf("talkeq: %w", err)
 	}
+	defer fw.Close()
 
-	sort.SliceStable(cfg.SQLReport.Entries, func(i, j int) bool {
-		return cfg.SQLReport.Entries[i].Index > cfg.SQLReport.Entries[j].Index
-	})
+	enc := toml.NewEncoder(fw)
+	err = enc.Encode(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("encode: %w", err)
+	}
 
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if cfg.Debug {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}
+	sort.SliceStable(cfg.SQLReport.Entries, func(i, j int) bool {
+		return cfg.SQLReport.Entries[i].Index > cfg.SQLReport.Entries[j].Index
+	})
 
-	if cfg.UsersDatabasePath == "" {
-		cfg.UsersDatabasePath = "./users.txt"
-	}
-
-	if cfg.GuildsDatabasePath == "" {
-		cfg.GuildsDatabasePath = "./guilds.txt"
+	err = cfg.Verify()
+	if err != nil {
+		return nil, fmt.Errorf("verify: %w", err)
 	}
 
 	return &cfg, nil
+}
+
+// Verify returns an error if configuration appears off
+func (c *Config) Verify() error {
+
+	if c.UsersDatabasePath == "" {
+		c.UsersDatabasePath = "talkeq_users.toml"
+	}
+
+	if c.GuildsDatabasePath == "" {
+		c.GuildsDatabasePath = "./guilds.txt"
+	}
+
+	if c.IsKeepAliveEnabled && c.KeepAliveRetryDuration().Seconds() < 2 {
+		c.KeepAliveRetry = "30s"
+	}
+
+	if err := c.API.Verify(); err != nil {
+		return fmt.Errorf("api: %w", err)
+	}
+	if err := c.Discord.Verify(); err != nil {
+		return fmt.Errorf("discord: %w", err)
+	}
+	if err := c.EQLog.Verify(); err != nil {
+		return fmt.Errorf("eqlog: %w", err)
+	}
+	if err := c.Nats.Verify(); err != nil {
+		return fmt.Errorf("nats: %w", err)
+	}
+	if err := c.PEQEditor.Verify(); err != nil {
+		return fmt.Errorf("peqeditor: %w", err)
+	}
+	if err := c.SQLReport.Verify(); err != nil {
+		return fmt.Errorf("sqlreport: %w", err)
+	}
+	if err := c.Telnet.Verify(); err != nil {
+		return fmt.Errorf("telnet: %w", err)
+	}
+	return nil
+}
+
+// KeepAliveRetryDuration returns the converted retry rate
+func (c *Config) KeepAliveRetryDuration() time.Duration {
+	retryDuration, err := time.ParseDuration(c.KeepAliveRetry)
+	if err != nil {
+		return 10 * time.Second
+	}
+
+	if retryDuration < 10*time.Second {
+		return 10 * time.Second
+	}
+	return retryDuration
+}
+
+func getDefaultConfig() Config {
+	cfg := Config{
+		Debug:              true,
+		IsKeepAliveEnabled: true,
+		KeepAliveRetry:     "10s",
+		UsersDatabasePath:  "talkeq_users.toml",
+		GuildsDatabasePath: "talkeq_guilds.txt",
+	}
+	cfg.API.IsEnabled = true
+	cfg.API.Host = ":9933"
+	cfg.API.APIRegister.IsEnabled = true
+	cfg.API.APIRegister.RegistrationDatabasePath = "talkeq_register.toml"
+
+	cfg.Discord.IsEnabled = true
+	cfg.Discord.BotStatus = "EQ: {{.PlayerCount}} Online"
+	cfg.Discord.Routes = append(cfg.Discord.Routes, DiscordRoute{
+		IsEnabled: true,
+		Trigger: DiscordTrigger{
+			ChannelID: "INSERTOOCCHANNELHERE",
+		},
+		Target:         "telnet",
+		ChannelID:      "260",
+		MessagePattern: "emote world {{.ChannelID}} {{.Name}} says from discord, '{{.Message}}'",
+	})
+
+	cfg.Discord.Routes = append(cfg.Discord.Routes, DiscordRoute{
+		IsEnabled: true,
+		Trigger: DiscordTrigger{
+			ChannelID: "INSERTOOCCHANNELHERE",
+		},
+		Target:         "nats",
+		ChannelID:      "260",
+		MessagePattern: "{{.Name}} says from discord, '{{.Message}}'",
+	})
+
+	cfg.Telnet.IsEnabled = true
+	cfg.Telnet.Host = "127.0.0.1:9000"
+	cfg.Telnet.ItemURL = "http://everquest.allakhazam.com/db/item.html?item="
+	cfg.Telnet.IsServerAnnounceEnabled = true
+	cfg.Telnet.MessageDeadline = "10s"
+	cfg.Telnet.IsOOCAuctionEnabled = true
+	cfg.Telnet.Routes = append(cfg.Telnet.Routes, Route{
+		IsEnabled: true,
+		Trigger: Trigger{
+			Regex:        `(\w+) says ooc, '(.*)'`,
+			NameIndex:    1,
+			MessageIndex: 2,
+		},
+		Target:         "discord",
+		ChannelID:      "INSERTOOCCHANNELHERE",
+		MessagePattern: "{{.Name}} **OOC**: {{.Message}}",
+	})
+
+	cfg.Telnet.Routes = append(cfg.Telnet.Routes, Route{
+		IsEnabled: true,
+		Trigger: Trigger{
+			Regex:        `(\w+) auctions, '(.*)'`,
+			NameIndex:    1,
+			MessageIndex: 2,
+		},
+		Target:         "discord",
+		ChannelID:      "INSERTAUCTIONCHANNELHERE",
+		MessagePattern: "{{.Name}} **auction**: {{.Message}}",
+	})
+
+	cfg.Telnet.Routes = append(cfg.Telnet.Routes, Route{
+		IsEnabled: true,
+		Trigger: Trigger{
+			Regex:        `(\w+) general, '(.*)'`,
+			NameIndex:    1,
+			MessageIndex: 2,
+		},
+		Target:         "discord",
+		ChannelID:      "INSERTGENERALCHANNELHERE",
+		MessagePattern: "{{.Name}} **general**: {{.Message}}",
+	})
+
+	cfg.Telnet.Routes = append(cfg.Telnet.Routes, Route{
+		IsEnabled: true,
+		Trigger: Trigger{
+			Regex:        `(\w+) BROADCASTS, '(.*)'`,
+			NameIndex:    1,
+			MessageIndex: 2,
+		},
+		Target:         "discord",
+		ChannelID:      "INSERTOOCCHANNELHERE",
+		MessagePattern: "{{.Name}} **BROADCAST**: {{.Message}}",
+	})
+
+	cfg.Telnet.Routes = append(cfg.Telnet.Routes, Route{
+		IsEnabled: true,
+		Trigger: Trigger{
+			Custom: "serverup",
+		},
+		Target:         "discord",
+		ChannelID:      "INSERTOOCCHANNELHERE",
+		MessagePattern: "**Admin ooc:** Server is now UP",
+	})
+	cfg.Telnet.Routes = append(cfg.Telnet.Routes, Route{
+		IsEnabled: true,
+		Trigger: Trigger{
+			Custom: "serverdown",
+		},
+		Target:         "discord",
+		ChannelID:      "INSERTOOCCHANNELHERE",
+		MessagePattern: "**Admin ooc:** Server is now DOWN",
+	})
+
+	cfg.EQLog.Path = `c:\Program Files\Everquest\Logs\eqlog_CharacterName_Server.txt`
+	cfg.EQLog.Routes = append(cfg.EQLog.Routes, Route{
+		IsEnabled: true,
+		Trigger: Trigger{
+			Regex:        `(\w+) says out of character, '(.*)'`,
+			NameIndex:    1,
+			MessageIndex: 2,
+		},
+		Target:         "discord",
+		ChannelID:      "INSERTOOCCHANNELHERE",
+		MessagePattern: "{{.Name}} **OOC**: {{.Message}}",
+	})
+	cfg.EQLog.Routes = append(cfg.EQLog.Routes, Route{
+		IsEnabled: true,
+		Trigger: Trigger{
+			Regex:        `(\w+) auctions, '(.*)'`,
+			NameIndex:    1,
+			MessageIndex: 2,
+		},
+		Target:         "discord",
+		ChannelID:      "INSERTAUCTIONCHANNELHERE",
+		MessagePattern: "{{.Name}} **OOC**: {{.Message}}",
+	})
+	cfg.EQLog.Routes = append(cfg.EQLog.Routes, Route{
+		IsEnabled: true,
+		Trigger: Trigger{
+			Regex:        `(\w+) says to general, '(.*)'`,
+			NameIndex:    1,
+			MessageIndex: 2,
+		},
+		Target:         "discord",
+		ChannelID:      "INSERTGENERALCHANNELHERE",
+		MessagePattern: "{{.Name}} **OOC**: {{.Message}}",
+	})
+	cfg.EQLog.Routes = append(cfg.EQLog.Routes, Route{
+		IsEnabled: true,
+		Trigger: Trigger{
+			Regex:        `(\w+) shouts, '(.*)'`,
+			NameIndex:    1,
+			MessageIndex: 2,
+		},
+		Target:         "discord",
+		ChannelID:      "INSERTSHOUTCHANNELHERE",
+		MessagePattern: "{{.Name}} **OOC**: {{.Message}}",
+	})
+	cfg.EQLog.Routes = append(cfg.EQLog.Routes, Route{
+		IsEnabled: true,
+		Trigger: Trigger{
+			Regex:        `(\w+) says to guild, '(.*)'`,
+			NameIndex:    1,
+			MessageIndex: 2,
+		},
+		Target:         "discord",
+		ChannelID:      "INSERTGUILDCHANNELHERE",
+		MessagePattern: "{{.Name}} **OOC**: {{.Message}}",
+	})
+
+	cfg.PEQEditor.SQL.Routes = append(cfg.EQLog.Routes, Route{
+		IsEnabled: true,
+		Trigger: Trigger{
+			Regex:        `(.*)`,
+			NameIndex:    0,
+			MessageIndex: 1,
+		},
+		Target:         "discord",
+		ChannelID:      "INSERPEQEDITORLOGCHANNELHERE",
+		MessagePattern: "{{.Name}} **OOC**: {{.Message}}",
+	})
+
+	cfg.Nats.Host = "127.0.0.1:4222"
+	cfg.Nats.IsOOCAuctionEnabled = true
+	cfg.Nats.Routes = append(cfg.EQLog.Routes, Route{
+		IsEnabled: true,
+		Trigger: Trigger{
+			Custom: "admin",
+		},
+		Target:         "discord",
+		ChannelID:      "INSERTADMINCHANNELHERE",
+		MessagePattern: "{{.Name}} **ADMIN**: {{.Message}}",
+	})
+	cfg.Nats.Routes = append(cfg.EQLog.Routes, Route{
+		IsEnabled: true,
+		Trigger: Trigger{
+			Custom: "260",
+		},
+		Target:         "discord",
+		ChannelID:      "INSERTOOCCHANNELHERE",
+		MessagePattern: "{{.Name}} **OOC**: {{.Message}}",
+	})
+
+	cfg.PEQEditor.SQL.Path = "/var/www/peq/peqphpeditor/logs"
+	cfg.PEQEditor.SQL.FilePattern = "sql_log_{{.Month}}-{{.Year}}.sql"
+
+	cfg.SQLReport.Host = "127.0.0.1:3306"
+	cfg.SQLReport.Username = "eqemu"
+	cfg.SQLReport.Password = "eqemu"
+	cfg.SQLReport.Database = "eqemu"
+	return cfg
 }

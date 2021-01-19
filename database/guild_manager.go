@@ -10,7 +10,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
+	"github.com/xackery/log"
 	"github.com/xackery/talkeq/config"
 )
 
@@ -55,6 +55,7 @@ func NewGuildManager(ctx context.Context, config *config.Config) (*GuildManager,
 }
 
 func (u *GuildManager) loop(ctx context.Context, watcher *fsnotify.Watcher) {
+	log := log.New()
 	defer watcher.Close()
 	for {
 		select {
@@ -83,6 +84,7 @@ func (u *GuildManager) loop(ctx context.Context, watcher *fsnotify.Watcher) {
 }
 
 func (u *GuildManager) reloadDatabase() error {
+	log := log.New()
 	data, err := ioutil.ReadFile(u.guildsDatabasePath)
 	if err != nil {
 		return errors.Wrap(err, "reloadDatabase")

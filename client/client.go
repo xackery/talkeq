@@ -2,20 +2,19 @@ package client
 
 import (
 	"context"
-	"os"
-	"runtime"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
-	"github.com/xackery/talkeq/channel"
+	"github.com/xackery/log"
+	"github.com/xackery/talkeq/api"
 	"github.com/xackery/talkeq/config"
 	"github.com/xackery/talkeq/database"
 	"github.com/xackery/talkeq/discord"
 	"github.com/xackery/talkeq/eqlog"
 	"github.com/xackery/talkeq/nats"
 	"github.com/xackery/talkeq/peqeditorsql"
+	"github.com/xackery/talkeq/request"
 	"github.com/xackery/talkeq/sqlreport"
 	"github.com/xackery/talkeq/telnet"
 )
@@ -31,6 +30,7 @@ type Client struct {
 	nats         *nats.Nats
 	sqlreport    *sqlreport.SQLReport
 	peqeditorsql *peqeditorsql.PEQEditorSQL
+	api          *api.API
 }
 
 // New creates a new client
@@ -41,17 +41,9 @@ func New(ctx context.Context) (*Client, error) {
 		ctx:    ctx,
 		cancel: cancel,
 	}
-	if runtime.GOOS != "windows" {
-		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-	}
 	c.config, err = config.NewConfig(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "config")
-	}
-
-	if c.config.IsKeepAliveEnabled && c.config.KeepAliveRetry.Seconds() < 2 {
-		c.config.KeepAliveRetry.Duration = 10 * time.Second
-		//return nil, fmt.Errorf("keep_alive_retry must be greater than 2s")
 	}
 
 	userManager, err := database.NewUserManager(ctx, c.config)
@@ -118,11 +110,23 @@ func New(ctx context.Context) (*Client, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "nats subscribe")
 	}
+
+	c.api, err = api.New(ctx, c.config.API, userManager, guildManager, c.discord)
+	if err != nil {
+		return nil, errors.Wrap(err, "api subscribe")
+	}
+
+	err = c.api.Subscribe(ctx, c.onMessage)
+	if err != nil {
+		return nil, errors.Wrap(err, "api subscribe")
+	}
+
 	return &c, nil
 }
 
 // Connect attempts to connect to all enabled endpoints
 func (c *Client) Connect(ctx context.Context) error {
+	log := log.New()
 	err := c.discord.Connect(ctx)
 	if err != nil {
 		if !c.config.IsKeepAliveEnabled {
@@ -171,11 +175,20 @@ func (c *Client) Connect(ctx context.Context) error {
 		log.Warn().Err(err).Msg("nats connect")
 	}
 
+	err = c.api.Connect(ctx)
+	if err != nil {
+		if !c.config.IsKeepAliveEnabled {
+			return errors.Wrap(err, "api connect")
+		}
+		log.Warn().Err(err).Msg("api connect")
+	}
+
 	go c.loop(ctx)
 	return nil
 }
 
 func (c *Client) loop(ctx context.Context) {
+	log := log.New()
 	var err error
 	go func() {
 		var err error
@@ -212,7 +225,7 @@ func (c *Client) loop(ctx context.Context) {
 			return
 		default:
 		}
-		time.Sleep(c.config.KeepAliveRetry.Duration)
+		time.Sleep(c.config.KeepAliveRetryDuration())
 		if c.config.Discord.IsEnabled && !c.discord.IsConnected() {
 			log.Info().Msg("attempting to reconnect to discord")
 			err = c.discord.Connect(ctx)
@@ -237,113 +250,25 @@ func (c *Client) loop(ctx context.Context) {
 	}
 }
 
-func (c *Client) onMessage(source string, author string, channelID int, message string, optional string) {
+func (c *Client) onMessage(rawReq interface{}) error {
 	var err error
-	endpoints := "none"
-	switch source {
-	case "peqeditorsql":
-		if !c.config.Discord.IsEnabled {
-			log.Info().Msgf("[%s->none] %s %s: %s", source, author, channel.ToString(channelID), message)
-			return
-		}
-		err = c.discord.Send(context.Background(), source, author, channelID, message, optional)
-		if err != nil {
-			log.Warn().Err(err).Msg("discord send")
-		} else {
-			if endpoints == "none" {
-				endpoints = "discord"
-			} else {
-				endpoints += ",discord"
-			}
-		}
-		log.Info().Msgf("[%s->%s] %s %s: %s", source, endpoints, author, channel.ToString(channelID), message)
-	case "telnet":
-		if !c.config.Discord.IsEnabled {
-			log.Info().Msgf("[%s->none] %s %s: %s", source, author, channel.ToString(channelID), message)
-			return
-		}
-		err = c.discord.Send(context.Background(), source, author, channelID, message, optional)
-		if err != nil {
-			log.Warn().Err(err).Msg("discord send")
-		} else {
-			if endpoints == "none" {
-				endpoints = "discord"
-			} else {
-				endpoints += ",discord"
-			}
-		}
-		log.Info().Msgf("[%s->%s] %s %s: %s", source, endpoints, author, channel.ToString(channelID), message)
-	case "nats":
-		if !c.config.Discord.IsEnabled {
-			log.Info().Msgf("[%s->none] %s %s: %s", source, author, channel.ToString(channelID), message)
-			return
-		}
-		err = c.discord.Send(context.Background(), source, author, channelID, message, optional)
-		if err != nil {
-			log.Warn().Err(err).Msg("discord send")
-		} else {
-			if endpoints == "none" {
-				endpoints = "discord"
-			} else {
-				endpoints += ",discord"
-			}
-		}
-		log.Info().Msgf("[%s->%s] %s %s: %s", source, endpoints, author, channel.ToString(channelID), message)
-	case "discord":
-		isSent := false
-		if c.config.Telnet.IsEnabled {
-			err = c.telnet.Send(context.Background(), source, author, channelID, message, optional)
-			if err != nil {
-				log.Warn().Err(err).Msg("telnet send")
-			} else {
-				if endpoints == "none" {
-					endpoints = "telnet"
-				} else {
-					endpoints += ",telnet"
-				}
-			}
-			isSent = true
-		}
-		if c.config.Nats.IsEnabled {
-			err = c.nats.Send(context.Background(), source, author, channelID, message, optional)
-			if err != nil {
-				log.Warn().Err(err).Msg("nats send")
-			} else {
-				if endpoints == "none" {
-					endpoints = "nats"
-				} else {
-					endpoints += ",nats"
-				}
-			}
 
-			isSent = true
-		}
-
-		if !isSent {
-			log.Info().Msgf("[%s->none] %s %s: %s", source, author, channel.ToString(channelID), message)
-			return
-		}
-		log.Info().Msgf("[%s->%s] %s %s: %s", source, endpoints, author, channel.ToString(channelID), message)
-
-	case "eqlog":
-		if !c.config.Discord.IsEnabled {
-			log.Info().Msgf("[%s->none] %s %s: %s", source, author, channel.ToString(channelID), message)
-			return
-		}
-		err = c.discord.Send(context.Background(), source, author, channelID, message, optional)
-		if err != nil {
-			log.Warn().Err(err).Msg("discord send")
-		} else {
-			if endpoints == "none" {
-				endpoints = "discord"
-			} else {
-				endpoints += ",discord"
-			}
-		}
-		log.Info().Msgf("[%s->%s] %s %s: %s", source, endpoints, author, channel.ToString(channelID), message)
+	switch rawReq.(type) {
+	case request.APICommand:
+		err = c.api.Command(rawReq.(request.APICommand))
+	case request.DiscordSend:
+		err = c.discord.Send(rawReq.(request.DiscordSend))
+	case request.NatsSend:
+		err = c.nats.Send(rawReq.(request.NatsSend))
+	case request.TelnetSend:
+		err = c.telnet.Send(rawReq.(request.TelnetSend))
 	default:
-		log.Warn().Str("source", source).Str("author", author).Int("channelID", channelID).Str("message", message).Msg("unknown source")
+		return fmt.Errorf("unknown request type")
 	}
+	if err != nil {
+		return fmt.Errorf("send: %w", err)
+	}
+	return nil
 }
 
 // Disconnect attempts to gracefully disconnect all enabled endpoints

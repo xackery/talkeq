@@ -2,14 +2,14 @@ package database
 
 import (
 	"context"
-	"io/ioutil"
+	"fmt"
 	"os"
-	"strings"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/jbsmith7741/toml"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
+	"github.com/xackery/log"
 	"github.com/xackery/talkeq/config"
 )
 
@@ -19,24 +19,27 @@ type UserManager struct {
 	users             map[string]string
 	mutex             sync.RWMutex
 	usersDatabasePath string
+	db                UserDatabase
+}
+
+// UserDatabase represents the root database object
+type UserDatabase struct {
+	Users map[string]UserEntry
+}
+
+// UserEntry represents a record in the database
+type UserEntry struct {
+	CharacterName string
+	DiscordID     string
 }
 
 // NewUserManager instantiates a new users database manager
 func NewUserManager(ctx context.Context, config *config.Config) (*UserManager, error) {
 	u := new(UserManager)
 	u.usersDatabasePath = config.UsersDatabasePath
-	u.users = make(map[string]string)
+	u.db.Users = make(map[string]UserEntry)
 
-	_, err := os.Stat(u.usersDatabasePath)
-	if os.IsNotExist(err) {
-		err = ioutil.WriteFile(u.usersDatabasePath, []byte(`# userid:username
-87784167131066368:Xackery # aka Xackery#3764`), 0644)
-		if err != nil {
-			return nil, errors.Wrapf(err, "users database create %s", u.usersDatabasePath)
-		}
-	}
-
-	err = u.reloadDatabase()
+	err := u.reloadDatabase()
 	if err != nil {
 		return nil, errors.Wrap(err, "reloadDatabase")
 	}
@@ -55,6 +58,7 @@ func NewUserManager(ctx context.Context, config *config.Config) (*UserManager, e
 }
 
 func (u *UserManager) loop(ctx context.Context, watcher *fsnotify.Watcher) {
+	log := log.New()
 	defer watcher.Close()
 	for {
 		select {
@@ -83,59 +87,81 @@ func (u *UserManager) loop(ctx context.Context, watcher *fsnotify.Watcher) {
 }
 
 func (u *UserManager) reloadDatabase() error {
-	data, err := ioutil.ReadFile(u.usersDatabasePath)
-	if err != nil {
-		return errors.Wrap(err, "reloadDatabase")
+
+	ue := make(map[string]UserEntry)
+	_, err := os.Stat(u.usersDatabasePath)
+	if os.IsNotExist(err) {
+		f, err := os.Create(u.usersDatabasePath)
+		if err != nil {
+			return fmt.Errorf("create user database: %w", err)
+		}
+		defer f.Close()
+		enc := toml.NewEncoder(f)
+		err = enc.Encode(ue)
+		if err != nil {
+			return fmt.Errorf("create user database: %w", err)
+		}
+		u.mutex.Lock()
+		u.db.Users = ue
+		u.mutex.Unlock()
+		return nil
 	}
 
-	nu := make(map[string]string)
-	lines := strings.Split(string(data), "\n")
-	for lineNumber, line := range lines {
-		lineNumber++
-		p := strings.Index(line, ":")
-		if p < 1 {
-			log.Warn().Int("line number", lineNumber).Msgf("%s no : exists", u.usersDatabasePath)
-			continue
-		}
-		id := line[0:p]
-		if len(id) < 3 {
-			log.Warn().Int("line number", lineNumber).Msgf("%s userid too short", u.usersDatabasePath)
-			continue
-		}
-		name := line[p+1:]
-		if len(name) < 3 {
-			log.Warn().Int("line number", lineNumber).Msgf("%s username too short", u.usersDatabasePath)
-			continue
-		}
-		p = strings.Index(name, "#")
-		if p > 0 {
-			name = name[0:p]
-		}
-		name = strings.TrimSpace(name)
-		_, ok := nu[id]
-		if ok {
-			log.Warn().Int("line number", lineNumber).Str("user id", id).Msgf("%s duplicate entry", u.usersDatabasePath)
-		}
-		nu[id] = name
+	_, err = toml.DecodeFile(u.usersDatabasePath, &ue)
+	if err != nil {
+		return fmt.Errorf("decode: %w", err)
 	}
 
 	u.mutex.Lock()
-	u.users = nu
+	u.db.Users = ue
 	u.mutex.Unlock()
 	return nil
 }
 
 // Set updates or adds an entry for a specified user id
-func (u *UserManager) Set(userID string, userName string) {
+func (u *UserManager) Set(discordID string, characterName string) {
+	log := log.New()
 	u.mutex.Lock()
-	u.users[userID] = userName
+	ue, ok := u.db.Users[discordID]
+	if ok {
+		ue.CharacterName = characterName
+		ue.DiscordID = discordID
+	} else {
+		ue = UserEntry{
+			DiscordID:     discordID,
+			CharacterName: characterName,
+		}
+	}
+	u.db.Users[discordID] = ue
+	err := u.save()
+	if err != nil {
+		log.Warn().Err(err).Msg("set user entry")
+	}
 	u.mutex.Unlock()
 }
 
 // Name returns the name of a user based on their ID
-func (u *UserManager) Name(userID string) string {
+func (u *UserManager) Name(discordID string) string {
+	var name string
 	u.mutex.RLock()
-	name := u.users[userID]
+	ue, ok := u.db.Users[discordID]
+	if ok {
+		name = ue.CharacterName
+	}
 	u.mutex.RUnlock()
 	return name
+}
+
+func (u *UserManager) save() error {
+	f, err := os.Create(u.usersDatabasePath)
+	if err != nil {
+		return fmt.Errorf("create: %w", err)
+	}
+	defer f.Close()
+	enc := toml.NewEncoder(f)
+	err = enc.Encode(u.db.Users)
+	if err != nil {
+		return fmt.Errorf("encode: %w", err)
+	}
+	return nil
 }

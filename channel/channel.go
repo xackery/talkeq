@@ -1,6 +1,7 @@
 package channel
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 )
@@ -20,6 +21,8 @@ const (
 	Admin = "admin"
 	// PEQEditorSQLLog channel name
 	PEQEditorSQLLog = "peqeditorsqllog"
+	// Broadcast channel name
+	Broadcast = "broadcast"
 )
 
 var (
@@ -32,6 +35,7 @@ var (
 		"shout":           262,
 		"admin":           1000,
 		"peqeditorsqllog": 1001,
+		"broadcast":       1002,
 	}
 	mutex sync.RWMutex
 )
@@ -44,6 +48,9 @@ func ToString(channelID int) string {
 		if v == channelID {
 			return k
 		}
+	}
+	if channelID > 5000 {
+		return fmt.Sprintf("%d", channelID)
 	}
 	return ""
 }
