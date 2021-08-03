@@ -35,7 +35,6 @@ type Nats struct {
 	conn           *nats.Conn
 	subscribers    []func(interface{}) error
 	isInitialState bool
-	online         int
 	guilds         *database.GuildManager
 }
 
@@ -188,8 +187,6 @@ func (t *Nats) onChannelMessage(m *nats.Msg) {
 		return
 	}
 
-	msg = t.convertLinks(msg)
-
 	for routeIndex, route := range t.config.Routes {
 		buf := new(bytes.Buffer)
 		if err := route.MessagePatternTemplate().Execute(buf, struct {
@@ -263,20 +260,6 @@ func (t *Nats) Subscribe(ctx context.Context, onMessage func(interface{}) error)
 	return nil
 }
 
-func sanitize(data string) string {
-	data = strings.Replace(data, `%`, "&PCT;", -1)
-	re := regexp.MustCompile("[^\x00-\x7F]+")
-	data = re.ReplaceAllString(data, "")
-	return data
-}
-
-// alphanumeric sanitizes incoming data to only be valid
-func alphanumeric(data string) string {
-	re := regexp.MustCompile("[^a-zA-Z0-9_]+")
-	data = re.ReplaceAllString(data, "")
-	return data
-}
-
 func (t *Nats) onAdminMessage(m *nats.Msg) {
 	log := log.New()
 	var err error
@@ -338,6 +321,7 @@ func (t *Nats) convertLinks(message string) string {
 
 		itemID, err := strconv.ParseInt(itemLink, 16, 32)
 		if err != nil {
+			//TODO: handle parsing
 		}
 		itemName := message[submatches[4]:submatches[5]]
 
