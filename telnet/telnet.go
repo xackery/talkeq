@@ -20,8 +20,8 @@ import (
 
 var (
 	playersOnlineRegex = regexp.MustCompile("([0-9]+) players online")
-	oldItemLink        = regexp.MustCompile("\\x12([0-9A-Z]{6})[0-9A-Z]{39}([A-Za-z'`.,!? ]+)\\x12")
-	newItemLink        = regexp.MustCompile("\\x12([0-9A-Z]{6})[0-9A-Z]{50}([A-Za-z'`.,!? ]+)\\x12")
+	oldItemLink        = regexp.MustCompile("\\x12([0-9A-Z]{6})[0-9A-Z]{39}([A-Za-z-'`.,!? ]+)\\x12")
+	newItemLink        = regexp.MustCompile("\\x12([0-9A-Z]{6})[0-9A-Z]{50}([A-Za-z-'`.,!? ]+)\\x12")
 )
 
 const (
