@@ -226,7 +226,10 @@ func (t *Discord) Send(req request.DiscordSend) error {
 		return fmt.Errorf("not connected")
 	}
 
-	msg, err := t.conn.ChannelMessageSend(req.ChannelID, req.Message)
+	msg, err := t.conn.ChannelMessageSendComplex(req.ChannelID, &discordgo.MessageSend{
+		Content:         req.Message,
+		AllowedMentions: &discordgo.MessageAllowedMentions{},
+	})
 	if err != nil {
 		return fmt.Errorf("ChannelMessageSend: %w", err)
 	}
