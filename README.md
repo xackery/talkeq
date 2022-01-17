@@ -46,6 +46,10 @@ Telnet|ooc
 * Open the link and authorize your bot to access your server.
 * Ensure the bot now appears offline on your server's general channel
 
+### Configure TalkEQ
+
+* Start talkeq up. The first run, it will say `a new talkeq.conf file was created. Please open this file and configure talkeq, then run it again.`. 
+* Edit the talkeq.conf, walking through each section and applying it for your situation. There are comments that help you through the process.
 
 ### Configure discord users to talk from Discord to EQ
 
