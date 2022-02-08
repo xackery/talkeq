@@ -1,12 +1,8 @@
 package nats
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"regexp"
-	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/gogo/protobuf/proto"
@@ -37,11 +33,6 @@ type Nats struct {
 	isInitialState bool
 	guilds         *database.GuildManager
 }
-
-var (
-	oldItemLink = regexp.MustCompile("\\x12([0-9A-Z]{6})[0-9A-Z]{39}([A-Za-z'`.,!? ]+)\\x12")
-	newItemLink = regexp.MustCompile("\\x12([0-9A-Z]{6})[0-9A-Z]{50}([A-Za-z'`.,!? ]+)\\x12")
-)
 
 // New creates a new nats connect
 func New(ctx context.Context, config config.Nats, guildManager *database.GuildManager) (*Nats, error) {
@@ -162,179 +153,10 @@ func (t *Nats) Send(req request.NatsSend) error {
 	return nil
 }
 
-func (t *Nats) onChannelMessage(m *nats.Msg) {
-	log := log.New()
-	var err error
-	ctx := context.Background()
-	channelMessage := new(pb.ChannelMessage)
-	err = proto.Unmarshal(m.Data, channelMessage)
-	if err != nil {
-		log.Warn().Err(err).Msg("nats failed to unmarshal channel message")
-		return
-	}
-
-	if channelMessage.IsEmote {
-		channelMessage.ChanNum = channelMessage.Type
-	}
-
-	msg := channelMessage.Message
-
-	log.Debug().Str("msg", msg).Msg("processing nats message")
-
-	// this likely can be removed or ignored?
-	if strings.Contains(channelMessage.Message, "Summoning you to") { //GM messages are relaying to discord!
-		log.Debug().Str("msg", msg).Msg("ignoring gm summon")
-		return
-	}
-
-	for routeIndex, route := range t.config.Routes {
-		buf := new(bytes.Buffer)
-		if err := route.MessagePatternTemplate().Execute(buf, struct {
-			Name    string
-			Message string
-		}{
-			channelMessage.From,
-			channelMessage.Message,
-		}); err != nil {
-			log.Warn().Err(err).Int("route", routeIndex).Msg("[telnet] execute")
-			continue
-		}
-
-		if route.Trigger.Custom != "" { //custom can be used to channel bind in nats
-			routeChannelID, err := strconv.Atoi(route.Trigger.Custom)
-			if err != nil {
-				continue
-			}
-			if int(channelMessage.ChanNum) != routeChannelID {
-				continue
-			}
-			req := request.DiscordSend{
-				Ctx:       ctx,
-				ChannelID: route.ChannelID,
-				Message:   buf.String(),
-			}
-			for _, s := range t.subscribers {
-				err = s(req)
-				if err != nil {
-					log.Warn().Err(err).Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[nats->discord]")
-					continue
-				}
-				log.Info().Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[nats->discord]")
-			}
-			continue
-		}
-
-		pattern, err := regexp.Compile(route.Trigger.Regex)
-		if err != nil {
-			log.Debug().Err(err).Int("route", routeIndex).Msg("[nats] compile")
-			continue
-		}
-		matches := pattern.FindAllStringSubmatch(channelMessage.Message, -1)
-		if len(matches) == 0 {
-			continue
-		}
-
-		//find regex match
-		req := request.DiscordSend{
-			Ctx:       ctx,
-			ChannelID: route.ChannelID,
-			Message:   buf.String(),
-		}
-		for _, s := range t.subscribers {
-			err = s(req)
-			if err != nil {
-				log.Warn().Err(err).Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[nats->discord]")
-				continue
-			}
-			log.Info().Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[nats->discord]")
-		}
-	}
-
-}
-
 // Subscribe listens for new events on nats
 func (t *Nats) Subscribe(ctx context.Context, onMessage func(interface{}) error) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	t.subscribers = append(t.subscribers, onMessage)
 	return nil
-}
-
-func (t *Nats) onAdminMessage(m *nats.Msg) {
-	log := log.New()
-	var err error
-	ctx := context.Background()
-	channelMessage := new(pb.ChannelMessage)
-	err = proto.Unmarshal(m.Data, channelMessage)
-	if err != nil {
-		log.Warn().Err(err).Msg("nats failed to unmarshal admin message")
-		return
-	}
-
-	for routeIndex, route := range t.config.Routes {
-		if !route.IsEnabled {
-			continue
-		}
-		if route.Trigger.Custom != "admin" {
-			continue
-		}
-		buf := new(bytes.Buffer)
-		if err := route.MessagePatternTemplate().Execute(buf, struct {
-			Name    string
-			Message string
-		}{
-			channelMessage.From,
-			channelMessage.Message,
-		}); err != nil {
-			log.Warn().Err(err).Int("route", routeIndex).Msg("[nats] execute")
-			continue
-		}
-
-		req := request.DiscordSend{
-			Ctx:       ctx,
-			ChannelID: route.ChannelID,
-			Message:   buf.String(),
-		}
-		for _, s := range t.subscribers {
-			err = s(req)
-			if err != nil {
-				log.Warn().Err(err).Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[nats->discord]")
-				continue
-			}
-			log.Info().Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[nats->discord]")
-		}
-	}
-}
-
-func (t *Nats) convertLinks(message string) string {
-
-	matches := newItemLink.FindAllStringSubmatchIndex(message, -1)
-	if len(matches) == 0 {
-		matches = oldItemLink.FindAllStringSubmatchIndex(message, -1)
-	}
-	out := message
-	for _, submatches := range matches {
-		if len(submatches) < 6 {
-			continue
-		}
-		itemLink := message[submatches[2]:submatches[3]]
-
-		itemID, err := strconv.ParseInt(itemLink, 16, 32)
-		if err != nil {
-			//TODO: handle parsing
-		}
-		itemName := message[submatches[4]:submatches[5]]
-
-		out = message[0:submatches[0]]
-		if itemID > 0 && len(t.config.ItemURL) > 0 {
-			out += fmt.Sprintf("%s%d (%s)", t.config.ItemURL, itemID, itemName)
-		} else {
-			out += fmt.Sprintf("*%s* ", itemName)
-		}
-		out += message[submatches[1]:]
-		out = strings.TrimSpace(out)
-		out = t.convertLinks(out)
-		break
-	}
-	return out
 }
