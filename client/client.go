@@ -116,6 +116,8 @@ func New(ctx context.Context) (*Client, error) {
 		return nil, errors.Wrap(err, "api subscribe")
 	}
 
+	c.discord.SetTelnet(c.telnet)
+
 	err = c.api.Subscribe(ctx, c.onMessage)
 	if err != nil {
 		return nil, errors.Wrap(err, "api subscribe")

@@ -41,6 +41,7 @@ type Telnet struct {
 	isNewTelnet    bool
 	isInitialState bool
 	online         int
+	onlineUsers    []string
 }
 
 // New creates a new telnet connect
@@ -473,6 +474,37 @@ func (t *Telnet) parsePlayersOnline(msg string) {
 
 	t.mutex.Lock()
 	t.online = online
+	t.onlineUsers = []string{}
+	fmt.Println(msg)
+	lines := strings.Split(msg, "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "players online") {
+			continue
+		}
+		t.onlineUsers = append(t.onlineUsers, line)
+	}
 	t.mutex.Unlock()
 	log.Debug().Int("online", online).Msg("updated online count")
+}
+
+// WhoCache responds with the latest known who results based on telnet querying
+func (t *Telnet) WhoCache(ctx context.Context, search string) string {
+
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	resp := ""
+
+	counter := 0
+	for _, user := range t.onlineUsers {
+		if !strings.Contains(user, search) {
+			continue
+		}
+		resp += fmt.Sprintf("%s\n", user)
+		counter++
+	}
+
+	if counter > 0 {
+		resp = fmt.Sprintf("There are %d players who match '%s':\n%s", counter, search, resp)
+	}
+	return resp
 }

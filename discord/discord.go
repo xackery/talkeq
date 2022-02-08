@@ -16,6 +16,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/xackery/log"
+	"github.com/xackery/talkeq/common"
 	"github.com/xackery/talkeq/config"
 	"github.com/xackery/talkeq/database"
 	"github.com/xackery/talkeq/request"
@@ -40,6 +41,8 @@ type Discord struct {
 	guilds        *database.GuildManager
 	lastMessageID string
 	lastChannelID string
+	commands      map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) (string, error)
+	telnet        common.TelnetMapper
 }
 
 // New creates a new discord connect
@@ -54,6 +57,10 @@ func New(ctx context.Context, config config.Discord, userManager *database.UserM
 		users:  userManager,
 		guilds: guildManager,
 	}
+	t.commands = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) (string, error){
+		"who": t.who,
+	}
+
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -105,7 +112,8 @@ func (t *Discord) Connect(ctx context.Context) error {
 	}
 
 	t.conn.StateEnabled = true
-	t.conn.AddHandler(t.handler)
+	t.conn.AddHandler(t.hMessageCreate)
+	t.conn.AddHandler(t.hInteractionCreate)
 
 	err = t.conn.Open()
 	if err != nil {
@@ -164,7 +172,7 @@ func (t *Discord) loop(ctx context.Context) {
 func (t *Discord) StatusUpdate(ctx context.Context, online int, customText string) error {
 	var err error
 	if customText != "" {
-		err = t.conn.UpdateStatus(0, customText)
+		err = t.conn.UpdateGameStatus(0, customText)
 		if err != nil {
 			return err
 		}
@@ -180,7 +188,7 @@ func (t *Discord) StatusUpdate(ctx context.Context, online int, customText strin
 		online,
 	})
 
-	err = t.conn.UpdateStatus(0, buf.String())
+	err = t.conn.UpdateGameStatus(0, buf.String())
 	if err != nil {
 		return err
 	}
@@ -246,7 +254,7 @@ func (t *Discord) Subscribe(ctx context.Context, onMessage func(interface{}) err
 	return nil
 }
 
-func (t *Discord) handler(s *discordgo.Session, m *discordgo.MessageCreate) {
+func (t *Discord) hMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	ctx := context.Background()
 	log := log.New()
 	t.mutex.Lock()
@@ -459,4 +467,43 @@ func (t *Discord) EditMessage(channelID string, messageID string, message string
 	}
 	log.Debug().Msgf("edited message before: %s, after: %s", messageID, msg.ID)
 	return nil
+}
+
+func (t *Discord) hInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	log := log.New()
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	cmd := i.ApplicationCommandData().Name
+	log.Debug().Msgf("got interaction: %s", cmd)
+
+	var content string
+	var err error
+	cmdFunc, ok := t.commands[strings.ToLower(cmd)]
+	if ok {
+		content, err = cmdFunc(s, i)
+	} else {
+		err = fmt.Errorf("unknown command")
+	}
+
+	if err != nil {
+		log.Error().Err(err).Msgf("failed to run command %s", cmd)
+	}
+
+	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: content,
+			Flags:   1 << 6,
+		},
+	})
+	if err != nil {
+		log.Error().Err(err).Msgf("interactionRespond")
+	}
+}
+
+func (t *Discord) SetTelnet(telnet common.TelnetMapper) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	t.telnet = telnet
 }
