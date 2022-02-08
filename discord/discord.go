@@ -7,7 +7,6 @@ import (
 	"os"
 	"regexp"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"text/template"
@@ -16,7 +15,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/xackery/log"
-	"github.com/xackery/talkeq/common"
 	"github.com/xackery/talkeq/config"
 	"github.com/xackery/talkeq/database"
 	"github.com/xackery/talkeq/request"
@@ -32,7 +30,7 @@ type Discord struct {
 	ctx           context.Context
 	cancel        context.CancelFunc
 	isConnected   bool
-	mutex         sync.RWMutex
+	mu            sync.RWMutex
 	config        config.Discord
 	conn          *discordgo.Session
 	subscribers   []func(interface{}) error
@@ -42,7 +40,6 @@ type Discord struct {
 	lastMessageID string
 	lastChannelID string
 	commands      map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) (string, error)
-	telnet        common.TelnetMapper
 }
 
 // New creates a new discord connect
@@ -61,8 +58,8 @@ func New(ctx context.Context, config config.Discord, userManager *database.UserM
 		"who": t.who,
 	}
 
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+	t.mu.Lock()
+	defer t.mu.Unlock()
 
 	log.Debug().Msg("verifying discord configuration")
 
@@ -89,8 +86,8 @@ func New(ctx context.Context, config config.Discord, userManager *database.UserM
 func (t *Discord) Connect(ctx context.Context) error {
 	log := log.New()
 	var err error
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+	t.mu.Lock()
+	defer t.mu.Unlock()
 
 	if !t.config.IsEnabled {
 		log.Debug().Msg("discord is disabled, skipping connect")
@@ -112,8 +109,8 @@ func (t *Discord) Connect(ctx context.Context) error {
 	}
 
 	t.conn.StateEnabled = true
-	t.conn.AddHandler(t.hMessageCreate)
-	t.conn.AddHandler(t.hInteractionCreate)
+	t.conn.AddHandler(t.handleMessage)
+	t.conn.AddHandler(t.handleCommand)
 
 	err = t.conn.Open()
 	if err != nil {
@@ -197,9 +194,9 @@ func (t *Discord) StatusUpdate(ctx context.Context, online int, customText strin
 
 // IsConnected returns if a connection is established
 func (t *Discord) IsConnected() bool {
-	t.mutex.RLock()
+	t.mu.RLock()
 	isConnected := t.isConnected
-	t.mutex.RUnlock()
+	t.mu.RUnlock()
 	return isConnected
 }
 
@@ -248,146 +245,10 @@ func (t *Discord) Send(req request.DiscordSend) error {
 
 // Subscribe listens for new events on discord
 func (t *Discord) Subscribe(ctx context.Context, onMessage func(interface{}) error) error {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.subscribers = append(t.subscribers, onMessage)
 	return nil
-}
-
-func (t *Discord) hMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	ctx := context.Background()
-	log := log.New()
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-
-	if len(t.subscribers) == 0 {
-		log.Debug().Msg("[discord] message, but no subscribers to notify, ignoring")
-		return
-	}
-
-	ign := ""
-	msg := m.ContentWithMentionsReplaced()
-	if len(msg) > 4000 {
-		msg = msg[0:4000]
-	}
-	msg = sanitize(msg)
-	if len(msg) < 1 {
-		log.Debug().Str("original message", m.ContentWithMentionsReplaced()).Msg("[discord] message after sanitize too small, ignoring")
-		return
-	}
-
-	ign = t.users.Name(m.Author.ID)
-	if ign == "" {
-		ign = t.GetIGNName(s, m.Author.ID)
-		//disabled this code since it would cache results and remove dynamics
-		//if ign != "" { //update users database with newly found ign tag
-		//	t.users.Set(m.Author.ID, ign)
-		//}
-	}
-
-	//ignore bot messages
-	if m.Author.ID == t.id {
-		log.Debug().Msgf("[discord] bot %s ignored (message: %s)", m.Author.ID, msg)
-		return
-	}
-
-	ign = sanitize(ign)
-
-	if strings.Index(msg, "!") == 0 {
-		req := request.APICommand{
-			Ctx:                  ctx,
-			FromDiscordName:      m.Author.Username,
-			FromDiscordNameID:    m.Author.ID,
-			FromDiscordChannelID: m.ChannelID,
-			FromDiscordIGN:       ign,
-			Message:              msg,
-		}
-		for _, s := range t.subscribers {
-			err := s(req)
-			if err != nil {
-				log.Warn().Err(err).Msg("[discord->api]")
-			}
-			log.Info().Str("from", m.Author.Username).Str("message", msg).Msg("[discord->api]")
-		}
-	}
-
-	if len(ign) == 0 {
-		log.Warn().Msg("[discord] ign not found, discarding")
-		return
-	}
-	routes := 0
-	for routeIndex, route := range t.config.Routes {
-		if !route.IsEnabled {
-			continue
-		}
-		if route.Trigger.ChannelID != m.ChannelID {
-			continue
-		}
-
-		buf := new(bytes.Buffer)
-
-		if err := route.MessagePatternTemplate().Execute(buf, struct {
-			Name      string
-			Message   string
-			ChannelID string
-		}{
-			ign,
-			msg,
-			route.ChannelID,
-		}); err != nil {
-			log.Warn().Err(err).Int("route", routeIndex).Msg("[discord] execute")
-			continue
-		}
-
-		routes++
-		switch route.Target {
-		case "telnet":
-			req := request.TelnetSend{
-				Ctx:     ctx,
-				Message: buf.String(),
-			}
-			for _, s := range t.subscribers {
-				err := s(req)
-				if err != nil {
-					log.Warn().Err(err).Str("message", req.Message).Int("route", routeIndex).Msg("[discord->telnet]")
-					continue
-				}
-				log.Info().Str("message", req.Message).Int("route", routeIndex).Msg("[discord->telnet]")
-			}
-		case "nats":
-			channelID, err := strconv.Atoi(route.ChannelID)
-			if err != nil {
-				log.Warn().Err(err).Str("channelID", route.ChannelID).Int("route", routeIndex).Msgf("[discord->nats] channelID")
-			}
-
-			var guildID int
-			if len(route.GuildID) > 0 {
-				guildID, err = strconv.Atoi(route.GuildID)
-				if err != nil {
-					log.Warn().Err(err).Str("guildID", route.GuildID).Int("route", routeIndex).Msgf("[discord->nats] atoi guildID")
-				}
-			}
-
-			req := request.NatsSend{
-				Ctx:       ctx,
-				ChannelID: int32(channelID),
-				Message:   buf.String(),
-				GuildID:   int32(guildID),
-			}
-			for _, s := range t.subscribers {
-				err := s(req)
-				if err != nil {
-					log.Warn().Err(err).Str("message", req.Message).Int("route", routeIndex).Msg("[discord->nats]")
-				}
-				log.Info().Str("message", req.Message).Int("route", routeIndex).Msg("[discord->nats]")
-			}
-		default:
-			log.Warn().Int("route", routeIndex).Msgf("[discord] invalid target: %s", route.Target)
-		}
-	}
-	if routes == 0 {
-		log.Debug().Msg("message discarded, not routes match")
-	}
 }
 
 func sanitize(data string) string {
@@ -467,43 +328,4 @@ func (t *Discord) EditMessage(channelID string, messageID string, message string
 	}
 	log.Debug().Msgf("edited message before: %s, after: %s", messageID, msg.ID)
 	return nil
-}
-
-func (t *Discord) hInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	log := log.New()
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-
-	cmd := i.ApplicationCommandData().Name
-	log.Debug().Msgf("got interaction: %s", cmd)
-
-	var content string
-	var err error
-	cmdFunc, ok := t.commands[strings.ToLower(cmd)]
-	if ok {
-		content, err = cmdFunc(s, i)
-	} else {
-		err = fmt.Errorf("unknown command")
-	}
-
-	if err != nil {
-		log.Error().Err(err).Msgf("failed to run command %s", cmd)
-	}
-
-	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: content,
-			Flags:   1 << 6,
-		},
-	})
-	if err != nil {
-		log.Error().Err(err).Msgf("interactionRespond")
-	}
-}
-
-func (t *Discord) SetTelnet(telnet common.TelnetMapper) {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-	t.telnet = telnet
 }
