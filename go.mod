@@ -6,7 +6,7 @@ require (
 	github.com/bwmarrin/discordgo v0.23.3-0.20220202194601-aba5dc811da8
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/go-sql-driver/mysql v1.5.0
-	github.com/gogo/protobuf v1.3.1
+	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.4.2
 	github.com/gorilla/mux v1.8.0
 	github.com/hpcloud/tail v1.0.0
