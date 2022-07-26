@@ -1,5 +1,5 @@
 # A Self-Documenting Makefile: http://marmelab.com/blog/2016/02/29/auto-documented-makefile.html
-VERSION := v1.1.0
+VERSION := v1.1.1
 NAME := talkeq
 
 .PHONY: build-all
@@ -30,7 +30,7 @@ sanitize:
 
 PROTO_VERSION=3.8.0
 GO_PLUGIN=bin/protoc-gen-go
-GO_PROTOBUF_REPO=github.com/golang/protobuf
+GO_PROTOBUF_REPO=google.golang.org/protobuf
 GO_PTYPES_ANY_PKG=$(GO_PROTOBUF_REPO)/ptypes/any
 SWAGGER_PLUGIN=bin/protoc-gen-swagger
 PROTO_FILES=$(shell find proto -name '*.proto')
