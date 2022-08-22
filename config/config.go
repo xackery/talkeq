@@ -264,6 +264,19 @@ func getDefaultConfig() Config {
 		MessagePattern: "**Admin ooc:** Server is now DOWN",
 	})
 
+	cfg.Telnet.Routes = append(cfg.Telnet.Routes, Route{
+		IsEnabled: true,
+		Trigger: Trigger{
+			Regex:        `(\w+) tells the guild \[([0-9]+)\], '(.*)'`,
+			NameIndex:    1,
+			GuildIndex:   2,
+			MessageIndex: 3,
+		},
+		Target:         "discord",
+		ChannelID:      "INSERTGLOBALGUILDCHANNELHERE",
+		MessagePattern: "{{.Name}} **GUILD**: {{.Message}}",
+	})
+
 	cfg.EQLog.Path = `c:\Program Files\Everquest\Logs\eqlog_CharacterName_Server.txt`
 	cfg.EQLog.Routes = append(cfg.EQLog.Routes, Route{
 		IsEnabled: true,
@@ -308,18 +321,6 @@ func getDefaultConfig() Config {
 		Target:         "discord",
 		ChannelID:      "INSERTSHOUTCHANNELHERE",
 		MessagePattern: "{{.Name}} **SHOUT**: {{.Message}}",
-	})
-	cfg.EQLog.Routes = append(cfg.EQLog.Routes, Route{
-		IsEnabled: true,
-		Trigger: Trigger{
-			Regex:        `(\w+) tells the guild \[([0-9]+)\], '(.*)'`,
-			NameIndex:    1,
-			GuildIndex:   2,
-			MessageIndex: 3,
-		},
-		Target:         "discord",
-		ChannelID:      "INSERTGLOBALGUILDCHANNELHERE",
-		MessagePattern: "{{.Name}} **GUILD**: {{.Message}}",
 	})
 
 	cfg.PEQEditor.SQL.Routes = append(cfg.EQLog.Routes, Route{
