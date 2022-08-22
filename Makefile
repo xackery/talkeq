@@ -1,5 +1,5 @@
 # A Self-Documenting Makefile: http://marmelab.com/blog/2016/02/29/auto-documented-makefile.html
-VERSION := v1.2.0
+VERSION := v1.2.1
 NAME := talkeq
 
 .PHONY: build-all

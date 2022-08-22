@@ -267,9 +267,9 @@ func (t *Discord) SetChannelName(channelID string, name string) error {
 }
 
 // GetIGNName returns an IGN: tagged name from discord if applicable
-func (t *Discord) GetIGNName(s *discordgo.Session, userid string) string {
+func (t *Discord) GetIGNName(s *discordgo.Session, serverID string, userid string) string {
 	log := log.New()
-	member, err := s.GuildMember(t.config.ServerID, userid)
+	member, err := s.GuildMember(serverID, userid)
 	if err != nil {
 		log.Warn().Err(err).Str("author_id", userid).Msg("getIGNName")
 		return ""

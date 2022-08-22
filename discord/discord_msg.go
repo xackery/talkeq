@@ -37,7 +37,7 @@ func (t *Discord) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate
 
 	ign = userdb.Name(m.Author.ID)
 	if ign == "" {
-		ign = t.GetIGNName(s, m.Author.ID)
+		ign = t.GetIGNName(s, m.GuildID, m.Author.ID)
 		//disabled this code since it would cache results and remove dynamics
 		//if ign != "" { //update users database with newly found ign tag
 		//	t.users.Set(m.Author.ID, ign)
