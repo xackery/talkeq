@@ -274,9 +274,9 @@ func (t *Discord) GetIGNName(s *discordgo.Session, serverID string, userid strin
 		log.Warn().Err(err).Str("author_id", userid).Msg("getIGNName")
 		return ""
 	}
-	roles, err := s.GuildRoles(t.config.ServerID)
+	roles, err := s.GuildRoles(serverID)
 	if err != nil {
-		log.Warn().Err(err).Str("server_id", t.config.ServerID).Msg("get roles")
+		log.Warn().Err(err).Str("server_id", serverID).Msg("get roles")
 		return ""
 	}
 
