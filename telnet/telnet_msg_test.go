@@ -32,6 +32,7 @@ func TestConvertLinks(t *testing.T) {
 		{input: "\x1200046F000000000000000000000000000000000000000Mask of Tinkering**\x12 0.8.0 style double link \x1200046F000000000000000000000000000000000000000Mask of Tinkering**\x12", output: "http://test.com?itemid=1135 (Mask of Tinkering**) 0.8.0 style double link http://test.com?itemid=1135 (Mask of Tinkering**)"},
 		{input: "\r> \b\bShin says ooc, '\x120112A4000000000000000000000000000000000000000000244AE3C6Frosted Gem of Ferocity\x12'\n", output: "> Shin says ooc, 'http://test.com?itemid=70308 (Frosted Gem of Ferocity)'"},
 		{input: "\r> \b\bShin says ooc, '\x120CA2150000000000000000000000000000000000000000002A46AF7CTae Ew War Maul**\x12'\n", output: "> Shin says ooc, 'http://test.com?itemid=827925 (Tae Ew War Maul**)'"},
+		{input: "\r> \b\bShin says ooc, '\x120CA2150000000000000000000000000000000000000000002A46AF7CSpell: Test\x12'\n", output: "> Shin says ooc, 'http://test.com?itemid=827925 (Spell: Test)'"},
 	}
 	for _, message := range messages {
 		result := client.convertLinks(message.input)
