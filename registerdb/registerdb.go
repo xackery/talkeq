@@ -1,27 +1,25 @@
-package database
+package registerdb
 
 import (
-	"context"
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/jbsmith7741/toml"
-	"github.com/pkg/errors"
 	"github.com/xackery/log"
 	"github.com/xackery/talkeq/config"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
-// RegisterManager manages !register requests
-type RegisterManager struct {
-	ctx                      context.Context
+var (
+	isStarted                bool
 	db                       RegisterDatabase
-	mutex                    sync.RWMutex
-	RegistrationDatabasePath string
-}
+	mu                       sync.RWMutex
+	registrationDatabasePath string
+)
 
 // RegisterDatabase wraps registrations
 type RegisterDatabase struct {
@@ -40,37 +38,58 @@ type RegisterEntry struct {
 	Code          string
 }
 
-// NewRegisterManager instantiates a new registers database manager
-func NewRegisterManager(ctx context.Context, config *config.API) (*RegisterManager, error) {
-	u := new(RegisterManager)
-	u.RegistrationDatabasePath = config.APIRegister.RegistrationDatabasePath
-	u.db.Registrations = make(map[string]RegisterEntry)
-
-	err := u.reloadDatabase()
-	if err != nil {
-		return nil, errors.Wrap(err, "reloadDatabase")
+// New instantiates a new registerdb
+func New(config *config.API) error {
+	if isStarted {
+		return fmt.Errorf("already started")
 	}
+	log := log.New()
+	log.Debug().Msgf("initializing register db")
+	registrationDatabasePath = config.APIRegister.RegistrationDatabasePath
+	db.Registrations = make(map[string]RegisterEntry)
+
+	_, err := os.Stat(registrationDatabasePath)
+	if os.IsNotExist(err) {
+		f, err := os.Create(registrationDatabasePath)
+		if err != nil {
+			return fmt.Errorf("create register database: %w", err)
+		}
+		defer f.Close()
+		enc := toml.NewEncoder(f)
+		err = enc.Encode(db.Registrations)
+		if err != nil {
+			return fmt.Errorf("create register database: %w", err)
+		}
+		err = save()
+		if err != nil {
+			return fmt.Errorf("save: %w", err)
+		}
+	}
+
+	err = reload()
+	if err != nil {
+		return fmt.Errorf("reload: %w", err)
+	}
+
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return nil, errors.Wrap(err, "newwatcher")
+		return fmt.Errorf("newWatcher: %w", err)
 	}
 
-	err = watcher.Add(config.APIRegister.RegistrationDatabasePath)
+	err = watcher.Add(registrationDatabasePath)
 	if err != nil {
-		return nil, errors.Wrap(err, "watcheradd")
+		return fmt.Errorf("watcher.Add: %w", err)
 	}
 
-	go u.loop(ctx, watcher)
-	return u, nil
+	go loop(watcher)
+	return nil
 }
 
-func (u *RegisterManager) loop(ctx context.Context, watcher *fsnotify.Watcher) {
-	log := log.New()
+func loop(watcher *fsnotify.Watcher) {
 	defer watcher.Close()
+	log := log.New()
 	for {
 		select {
-		case <-ctx.Done():
-			return
 		case event, ok := <-watcher.Events:
 			if !ok {
 				log.Warn().Msg("register database failed to read file")
@@ -94,46 +113,34 @@ func (u *RegisterManager) loop(ctx context.Context, watcher *fsnotify.Watcher) {
 	}
 }
 
-func (u *RegisterManager) reloadDatabase() error {
+func reload() error {
+	mu.Lock()
+	defer mu.Unlock()
 
 	nre := make(map[string]RegisterEntry)
-	_, err := os.Stat(u.RegistrationDatabasePath)
+
+	_, err := os.Stat(registrationDatabasePath)
 	if os.IsNotExist(err) {
-		f, err := os.Create(u.RegistrationDatabasePath)
-		if err != nil {
-			return fmt.Errorf("create register database: %w", err)
-		}
-		defer f.Close()
-		enc := toml.NewEncoder(f)
-		err = enc.Encode(nre)
-		if err != nil {
-			return fmt.Errorf("create register database: %w", err)
-		}
-		u.mutex.Lock()
-		u.db.Registrations = nre
-		u.mutex.Unlock()
-		return nil
+		return fmt.Errorf("%s does not exist: %w", registrationDatabasePath, err)
 	}
 
-	_, err = toml.DecodeFile(u.RegistrationDatabasePath, &nre)
+	_, err = toml.DecodeFile(registrationDatabasePath, &nre)
 	if err != nil {
 		return fmt.Errorf("decode: %w", err)
 	}
 
-	u.mutex.Lock()
-	u.db.Registrations = nre
-	u.mutex.Unlock()
+	db.Registrations = nre
 	return nil
 }
 
-func (u *RegisterManager) save() error {
-	f, err := os.Create(u.RegistrationDatabasePath)
+func save() error {
+	f, err := os.Create(registrationDatabasePath)
 	if err != nil {
 		return fmt.Errorf("create: %w", err)
 	}
 	defer f.Close()
 	enc := toml.NewEncoder(f)
-	err = enc.Encode(u.db.Registrations)
+	err = enc.Encode(db.Registrations)
 	if err != nil {
 		return fmt.Errorf("encode: %w", err)
 	}
@@ -141,29 +148,33 @@ func (u *RegisterManager) save() error {
 }
 
 // Set updates or adds an entry for a specified register id
-func (u *RegisterManager) Set(discordID string, discordName string, characterName string, channelID string, messageID string, status string, timeout int64) {
-	u.mutex.Lock()
+func Set(discordID string, discordName string, characterName string, channelID string, messageID string, status string, timeout int64) {
+	mu.Lock()
+	defer mu.Unlock()
+	log := log.New()
 	re := RegisterEntry{
 		DiscordID:     discordID,
 		DiscordName:   discordName,
-		CharacterName: strings.Title(characterName),
+		CharacterName: cases.Title(language.AmericanEnglish).String(characterName),
 		Status:        status,
 		MessageID:     messageID,
 		ChannelID:     channelID,
 		Timeout:       timeout,
 		Code:          "1234",
 	}
-	u.db.Registrations[discordID] = re
-	u.save()
-	u.mutex.Unlock()
+	db.Registrations[discordID] = re
+	err := save()
+	if err != nil {
+		log.Warn().Err(err).Msgf("save")
+	}
 }
 
 // FindByCode returns an entry if code matches and is valid
-func (u *RegisterManager) FindByCode(code string) (entry RegisterEntry, err error) {
-	u.mutex.RLock()
-	defer u.mutex.RUnlock()
+func FindByCode(code string) (entry RegisterEntry, err error) {
+	mu.RLock()
+	defer mu.RUnlock()
 	var re RegisterEntry
-	for _, entry := range u.db.Registrations {
+	for _, entry := range db.Registrations {
 		if entry.Code != code {
 			continue
 		}
@@ -177,12 +188,12 @@ func (u *RegisterManager) FindByCode(code string) (entry RegisterEntry, err erro
 }
 
 // QueuedEntries returns a list of items that need to be relayed in EQ
-func (u *RegisterManager) QueuedEntries() (entries []RegisterEntry, err error) {
+func QueuedEntries() (entries []RegisterEntry, err error) {
+	mu.Lock()
+	defer mu.Unlock()
 	log := log.New()
-	u.mutex.Lock()
-	defer u.mutex.Unlock()
-	log.Debug().Int("registrations", len(u.db.Registrations)).Msg("[api]")
-	for _, entry := range u.db.Registrations {
+	log.Debug().Int("registrations", len(db.Registrations)).Msg("[api]")
+	for _, entry := range db.Registrations {
 		if entry.Timeout < time.Now().Unix() {
 			continue
 		}
@@ -191,17 +202,17 @@ func (u *RegisterManager) QueuedEntries() (entries []RegisterEntry, err error) {
 		}
 
 		entry.Status = "Waiting Reply"
-		u.db.Registrations[entry.DiscordID] = entry
+		db.Registrations[entry.DiscordID] = entry
 		entries = append(entries, entry)
 	}
 	return entries, nil
 }
 
 // Entry returns an existing entry
-func (u *RegisterManager) Entry(discordID string) (RegisterEntry, error) {
-	u.mutex.RLock()
-	defer u.mutex.RUnlock()
-	re, ok := u.db.Registrations[discordID]
+func Entry(discordID string) (RegisterEntry, error) {
+	mu.RLock()
+	defer mu.RUnlock()
+	re, ok := db.Registrations[discordID]
 	if !ok {
 		return re, fmt.Errorf("not found")
 	}
@@ -209,10 +220,10 @@ func (u *RegisterManager) Entry(discordID string) (RegisterEntry, error) {
 }
 
 // CharacterName returns the name of a discord ID
-func (u *RegisterManager) CharacterName(discordID string) string {
-	u.mutex.RLock()
-	defer u.mutex.RUnlock()
-	re, ok := u.db.Registrations[discordID]
+func CharacterName(discordID string) string {
+	mu.RLock()
+	defer mu.RUnlock()
+	re, ok := db.Registrations[discordID]
 	if !ok {
 		return ""
 	}
@@ -223,10 +234,10 @@ func (u *RegisterManager) CharacterName(discordID string) string {
 }
 
 // Update sets a new timeout and status to a registration entry
-func (u *RegisterManager) Update(discordID string, status string, timeout int64) error {
-	u.mutex.Lock()
-	defer u.mutex.Unlock()
-	re, ok := u.db.Registrations[discordID]
+func Update(discordID string, status string, timeout int64) error {
+	mu.Lock()
+	defer mu.Unlock()
+	re, ok := db.Registrations[discordID]
 	if !ok {
 		return fmt.Errorf("discordID %s not found", discordID)
 	}
@@ -235,8 +246,8 @@ func (u *RegisterManager) Update(discordID string, status string, timeout int64)
 	if re.Status == "Confirmed" {
 		re.Code = ""
 	}
-	u.db.Registrations[discordID] = re
-	err := u.save()
+	db.Registrations[discordID] = re
+	err := save()
 	if err != nil {
 		return fmt.Errorf("save: %w", err)
 	}

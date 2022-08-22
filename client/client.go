@@ -9,14 +9,14 @@ import (
 	"github.com/xackery/log"
 	"github.com/xackery/talkeq/api"
 	"github.com/xackery/talkeq/config"
-	"github.com/xackery/talkeq/database"
 	"github.com/xackery/talkeq/discord"
 	"github.com/xackery/talkeq/eqlog"
-	"github.com/xackery/talkeq/nats"
+	"github.com/xackery/talkeq/guilddb"
 	"github.com/xackery/talkeq/peqeditorsql"
 	"github.com/xackery/talkeq/request"
 	"github.com/xackery/talkeq/sqlreport"
 	"github.com/xackery/talkeq/telnet"
+	"github.com/xackery/talkeq/userdb"
 )
 
 // Client wraps all talking endpoints
@@ -27,7 +27,6 @@ type Client struct {
 	discord      *discord.Discord
 	telnet       *telnet.Telnet
 	eqlog        *eqlog.EQLog
-	nats         *nats.Nats
 	sqlreport    *sqlreport.SQLReport
 	peqeditorsql *peqeditorsql.PEQEditorSQL
 	api          *api.API
@@ -41,22 +40,26 @@ func New(ctx context.Context) (*Client, error) {
 		ctx:    ctx,
 		cancel: cancel,
 	}
+	log := log.New()
+	log.Debug().Msgf("initializing talkeq client")
 	c.config, err = config.NewConfig(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "config")
 	}
 
-	userManager, err := database.NewUserManager(ctx, c.config)
+	log.Debug().Msgf("initializing databases")
+	err = userdb.New(c.config)
 	if err != nil {
-		return nil, errors.Wrap(err, "usermanager")
+		return nil, fmt.Errorf("userdb.New: %w", err)
 	}
 
-	guildManager, err := database.NewGuildManager(ctx, c.config)
+	err = guilddb.New(c.config)
 	if err != nil {
-		return nil, errors.Wrap(err, "guildmanager")
+		return nil, fmt.Errorf("guilddb.New: %w", err)
 	}
 
-	c.discord, err = discord.New(ctx, c.config.Discord, userManager, guildManager)
+	log.Debug().Msgf("initializing 3rd party connections")
+	c.discord, err = discord.New(ctx, c.config.Discord)
 	if err != nil {
 		return nil, errors.Wrap(err, "discord")
 	}
@@ -101,17 +104,8 @@ func New(ctx context.Context) (*Client, error) {
 		return nil, errors.Wrap(err, "peqeditorsql subscribe")
 	}
 
-	c.nats, err = nats.New(ctx, c.config.Nats, guildManager)
-	if err != nil {
-		return nil, errors.Wrap(err, "nats")
-	}
-
-	err = c.nats.Subscribe(ctx, c.onMessage)
-	if err != nil {
-		return nil, errors.Wrap(err, "nats subscribe")
-	}
-
-	c.api, err = api.New(ctx, c.config.API, userManager, guildManager, c.discord)
+	log.Debug().Msgf("initializing API")
+	c.api, err = api.New(ctx, c.config.API, c.discord)
 	if err != nil {
 		return nil, errors.Wrap(err, "api subscribe")
 	}
@@ -127,6 +121,8 @@ func New(ctx context.Context) (*Client, error) {
 // Connect attempts to connect to all enabled endpoints
 func (c *Client) Connect(ctx context.Context) error {
 	log := log.New()
+	log.Debug().Msgf("talkeq connecting")
+
 	err := c.discord.Connect(ctx)
 	if err != nil {
 		if !c.config.IsKeepAliveEnabled {
@@ -165,14 +161,6 @@ func (c *Client) Connect(ctx context.Context) error {
 			return errors.Wrap(err, "peqeditorsql connect")
 		}
 		log.Warn().Err(err).Msg("peqeditorsql connect")
-	}
-
-	err = c.nats.Connect(ctx)
-	if err != nil {
-		if !c.config.IsKeepAliveEnabled {
-			return errors.Wrap(err, "nats connect")
-		}
-		log.Warn().Err(err).Msg("nats connect")
 	}
 
 	err = c.api.Connect(ctx)
@@ -258,8 +246,6 @@ func (c *Client) onMessage(rawReq interface{}) error {
 		err = c.api.Command(rawReq.(request.APICommand))
 	case request.DiscordSend:
 		err = c.discord.Send(rawReq.(request.DiscordSend))
-	case request.NatsSend:
-		err = c.nats.Send(rawReq.(request.NatsSend))
 	case request.TelnetSend:
 		err = c.telnet.Send(rawReq.(request.TelnetSend))
 	default:

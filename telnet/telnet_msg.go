@@ -8,13 +8,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/rs/zerolog/log"
+	"github.com/xackery/log"
+	"github.com/xackery/talkeq/guilddb"
 	"github.com/xackery/talkeq/request"
 )
 
 var (
-	oldItemLink = regexp.MustCompile("\\x12([0-9A-Z]{6})[0-9A-Z]{39}([A-Za-z-'`.,!? ]+)\\x12")
-	newItemLink = regexp.MustCompile("\\x12([0-9A-Z]{6})[0-9A-Z]{50}([A-Za-z-'`.,!? ]+)\\x12")
+	oldItemLink = regexp.MustCompile("\\x12([0-9A-Z]{6})[0-9A-Z]{39}([A-Za-z-'`.,!?* ]+)\\x12")
+	newItemLink = regexp.MustCompile("\\x12([0-9A-Z]{6})[0-9A-Z]{50}([A-Za-z-'`.,!?* ]+)\\x12")
 )
 
 func (t *Telnet) convertLinks(message string) string {
@@ -30,10 +31,11 @@ func (t *Telnet) convertLinks(message string) string {
 		}
 		itemLink := message[submatches[2]:submatches[3]]
 
-		itemID, err := strconv.ParseInt(itemLink, 16, 32)
-		if err != nil {
+		itemID, _ := strconv.ParseInt(itemLink, 16, 32)
+		//TODO: smarter debugging
+		//if err != nil {
 
-		}
+		//}
 		itemName := message[submatches[4]:submatches[5]]
 
 		out = message[0:submatches[0]]
@@ -51,17 +53,20 @@ func (t *Telnet) convertLinks(message string) string {
 }
 
 func (t *Telnet) parseMessage(msg string) bool {
+	log := log.New()
 	msg = t.convertLinks(msg)
 	for routeIndex, route := range t.config.Routes {
 		if route.Trigger.Custom != "" {
 			continue
 		}
 		pattern, err := regexp.Compile(route.Trigger.Regex)
+
 		if err != nil {
 			log.Debug().Err(err).Int("route", routeIndex).Msg("compile")
 			continue
 		}
 		matches := pattern.FindAllStringSubmatch(msg, -1)
+		log.Debug().Msgf("regex %s vs %s: %d", route.Trigger.Regex, msg, len(matches))
 		if len(matches) == 0 {
 			continue
 		}
@@ -78,6 +83,20 @@ func (t *Telnet) parseMessage(msg string) bool {
 			continue
 		}
 		name = matches[0][route.Trigger.NameIndex]
+		if route.Trigger.GuildIndex > 0 && route.Trigger.GuildIndex <= len(matches[0]) {
+			route.GuildID = matches[0][route.Trigger.GuildIndex]
+			iGuildID, err := strconv.Atoi(route.GuildID)
+			if err != nil {
+				log.Warn().Int("route", routeIndex).Msgf("[telnet] guild_index %s is not an integer matches %d", route.GuildID, len(matches[0]))
+				continue
+			}
+			tmpChannelID := guilddb.ChannelID(int(iGuildID))
+			if tmpChannelID == "" {
+				log.Debug().Int("route", routeIndex).Msgf("[telnet] guild_index %d is not in talkeq_guilds, falling back to discord channel %s", iGuildID, route.ChannelID)
+			} else {
+				route.ChannelID = tmpChannelID
+			}
+		}
 
 		buf := new(bytes.Buffer)
 		if err := route.MessagePatternTemplate().Execute(buf, struct {

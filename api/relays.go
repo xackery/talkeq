@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/xackery/log"
+	"github.com/xackery/talkeq/registerdb"
 )
 
 func (t *API) relays(w http.ResponseWriter, r *http.Request) {
@@ -23,7 +24,7 @@ func (t *API) relays(w http.ResponseWriter, r *http.Request) {
 
 	resp := Resp{}
 
-	entries, err := t.registerManager.QueuedEntries()
+	entries, err := registerdb.QueuedEntries()
 	if err != nil {
 		log.Warn().Err(err).Msg("queuedentries")
 		err := json.NewEncoder(w).Encode(resp)

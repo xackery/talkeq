@@ -15,25 +15,26 @@ import (
 
 // Config represents a configuration parse
 type Config struct {
-	Debug              bool      `toml:"debug" desc:"TalkEQ Configuration\n\n# Debug messages are displayed. This will cause console to be more verbose, but also more informative"`
-	IsKeepAliveEnabled bool      `toml:"keep_alive" desc:"Keep all connections alive?\n# If false, endpoint disconnects will not self repair\n# Not recommended to turn off except in advanced cases"`
-	KeepAliveRetry     string    `toml:"keep_alive_retry" desc:"How long before retrying to connect (requires keep_alive = true)\n# default: 10s"`
-	UsersDatabasePath  string    `toml:"users_database" desc:"Users by ID are mapped to their display names via the raw text file called users database\n# If users database file does not exist, a new one is created\n# This file is actively monitored. if you edit it while talkeq is running, it will reload the changes instantly\n# This file overrides the IGN: playerName role tags in discord\n# If a user is found on this list, it will fall back to check for IGN tags"`
-	GuildsDatabasePath string    `toml:"guilds_database" desc:"** Only supported by NATS **\n# Guilds by ID are mapped to their database ID via the raw text file called guilds database\n# If guilds database file does not exist, and NATS is enabled, a new one is created\n# This file is actively monitored. if you edit it while talkeq is running, it will reload the changes instantly"`
-	API                API       `toml:"api" desc:"API is a service to allow external tools to talk to TalkEQ via HTTP requests.\n# It uses Restful style (JSON) with a /api suffix for all endpoints"`
-	Discord            Discord   `toml:"discord" desc:"Discord is a chat service that you can listen and relay EQ chat with"`
-	Telnet             Telnet    `toml:"telnet" desc:"Telnet is a service eqemu/server can use, that relays messages over"`
-	EQLog              EQLog     `toml:"eqlog" desc:"EQ Log is used to parse everquest client logs. Primarily for live EQ, non server owners"`
-	PEQEditor          PEQEditor `toml:"peq_editor"`
-	Nats               Nats      `toml:"nats" desc:"NATS is a custom alternative to telnet\n# that a very limited number of eqemu\n# servers utilize. Chances are, you can ignore"`
-	SQLReport          SQLReport `toml:"sql_report" desc:"SQL Report can be used to show stats on discord\n# An ideal way to set this up is create a private voice channel\n# Then bind it to various queries"`
+	Debug                         bool      `toml:"debug" desc:"TalkEQ Configuration\n\n# Debug messages are displayed. This will cause console to be more verbose, but also more informative"`
+	IsKeepAliveEnabled            bool      `toml:"keep_alive" desc:"Keep all connections alive?\n# If false, endpoint disconnects will not self repair\n# Not recommended to turn off except in advanced cases"`
+	IsFallbackGuildChannelEnabled bool      `toml:"is_fallback_guild_channel_enabled" desc:"If a guild chat occurs and it isn't mapped inside talkeq_guilds, chat is echod to the globalguild channel route channelid"`
+	KeepAliveRetry                string    `toml:"keep_alive_retry" desc:"How long before retrying to connect (requires keep_alive = true)\n# default: 10s"`
+	UsersDatabasePath             string    `toml:"users_database" desc:"Users by ID are mapped to their display names via the raw text file called users database\n# If users database file does not exist, a new one is created\n# This file is actively monitored. if you edit it while talkeq is running, it will reload the changes instantly\n# This file overrides the IGN: playerName role tags in discord\n# If a user is found on this list, it will fall back to check for IGN tags"`
+	GuildsDatabasePath            string    `toml:"guilds_database" desc:"Guilds by ID are mapped to their database ID via the raw text file called guilds database\n# If guilds database file does not exist, a new one is created\n# This file is actively monitored. if you edit it while talkeq is running, it will reload the changes instantly"`
+	API                           API       `toml:"api" desc:"API is a service to allow external tools to talk to TalkEQ via HTTP requests.\n# It uses Restful style (JSON) with a /api suffix for all endpoints"`
+	Discord                       Discord   `toml:"discord" desc:"Discord is a chat service that you can listen and relay EQ chat with"`
+	Telnet                        Telnet    `toml:"telnet" desc:"Telnet is a service eqemu/server can use, that relays messages over"`
+	EQLog                         EQLog     `toml:"eqlog" desc:"EQ Log is used to parse everquest client logs. Primarily for live EQ, non server owners"`
+	PEQEditor                     PEQEditor `toml:"peq_editor"`
+	SQLReport                     SQLReport `toml:"sql_report" desc:"SQL Report can be used to show stats on discord\n# An ideal way to set this up is create a private voice channel\n# Then bind it to various queries"`
 }
 
 // Trigger is a regex pattern matching
 type Trigger struct {
 	Regex        string `toml:"telnet_pattern" desc:"Input telnet trigger regex"`
-	NameIndex    int    `toml:"name_index" desc:"Name is found in this regex index grouping"`
-	MessageIndex int    `toml:"message_index" desc:"Message is found in this regex index grouping"`
+	NameIndex    int    `toml:"name_index" desc:"Name is found in this regex index grouping (0 is ignored)"`
+	MessageIndex int    `toml:"message_index" desc:"Message is found in this regex index grouping (0 is ignored)"`
+	GuildIndex   int    `toml:"guild_index" desc:"Guild is found in this regex index grouping (0 is ignored)"`
 	Custom       string `toml:"custom,omitempty" dec:"Custom event defined in code"`
 }
 
@@ -140,9 +141,6 @@ func (c *Config) Verify() error {
 	if err := c.EQLog.Verify(); err != nil {
 		return fmt.Errorf("eqlog: %w", err)
 	}
-	if err := c.Nats.Verify(); err != nil {
-		return fmt.Errorf("nats: %w", err)
-	}
 	if err := c.PEQEditor.Verify(); err != nil {
 		return fmt.Errorf("peqeditor: %w", err)
 	}
@@ -191,16 +189,6 @@ func getDefaultConfig() Config {
 		Target:         "telnet",
 		ChannelID:      "260",
 		MessagePattern: "emote world {{.ChannelID}} {{.Name}} says from discord, '{{.Message}}'",
-	})
-
-	cfg.Discord.Routes = append(cfg.Discord.Routes, DiscordRoute{
-		IsEnabled: true,
-		Trigger: DiscordTrigger{
-			ChannelID: "INSERTOOCCHANNELHERE",
-		},
-		Target:         "nats",
-		ChannelID:      "260",
-		MessagePattern: "{{.Name}} says from discord, '{{.Message}}'",
 	})
 
 	cfg.Telnet.IsEnabled = true
@@ -297,7 +285,7 @@ func getDefaultConfig() Config {
 		},
 		Target:         "discord",
 		ChannelID:      "INSERTAUCTIONCHANNELHERE",
-		MessagePattern: "{{.Name}} **OOC**: {{.Message}}",
+		MessagePattern: "{{.Name}} **AUCTION**: {{.Message}}",
 	})
 	cfg.EQLog.Routes = append(cfg.EQLog.Routes, Route{
 		IsEnabled: true,
@@ -319,18 +307,19 @@ func getDefaultConfig() Config {
 		},
 		Target:         "discord",
 		ChannelID:      "INSERTSHOUTCHANNELHERE",
-		MessagePattern: "{{.Name}} **OOC**: {{.Message}}",
+		MessagePattern: "{{.Name}} **SHOUT**: {{.Message}}",
 	})
 	cfg.EQLog.Routes = append(cfg.EQLog.Routes, Route{
 		IsEnabled: true,
 		Trigger: Trigger{
-			Regex:        `(\w+) says to guild, '(.*)'`,
+			Regex:        `(\w+) tells the guild \[([0-9]+)\], '(.*)'`,
 			NameIndex:    1,
-			MessageIndex: 2,
+			GuildIndex:   2,
+			MessageIndex: 3,
 		},
 		Target:         "discord",
-		ChannelID:      "INSERTGUILDCHANNELHERE",
-		MessagePattern: "{{.Name}} **OOC**: {{.Message}}",
+		ChannelID:      "INSERTGLOBALGUILDCHANNELHERE",
+		MessagePattern: "{{.Name}} **GUILD**: {{.Message}}",
 	})
 
 	cfg.PEQEditor.SQL.Routes = append(cfg.EQLog.Routes, Route{
@@ -342,27 +331,6 @@ func getDefaultConfig() Config {
 		},
 		Target:         "discord",
 		ChannelID:      "INSERPEQEDITORLOGCHANNELHERE",
-		MessagePattern: "{{.Name}} **OOC**: {{.Message}}",
-	})
-
-	cfg.Nats.Host = "127.0.0.1:4222"
-	cfg.Nats.IsOOCAuctionEnabled = true
-	cfg.Nats.Routes = append(cfg.EQLog.Routes, Route{
-		IsEnabled: true,
-		Trigger: Trigger{
-			Custom: "admin",
-		},
-		Target:         "discord",
-		ChannelID:      "INSERTADMINCHANNELHERE",
-		MessagePattern: "{{.Name}} **ADMIN**: {{.Message}}",
-	})
-	cfg.Nats.Routes = append(cfg.EQLog.Routes, Route{
-		IsEnabled: true,
-		Trigger: Trigger{
-			Custom: "260",
-		},
-		Target:         "discord",
-		ChannelID:      "INSERTOOCCHANNELHERE",
 		MessagePattern: "{{.Name}} **OOC**: {{.Message}}",
 	})
 

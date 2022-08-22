@@ -3,12 +3,14 @@ package discord
 import (
 	"bytes"
 	"context"
-	"strconv"
+	"fmt"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/xackery/log"
+	"github.com/xackery/talkeq/guilddb"
 	"github.com/xackery/talkeq/request"
+	"github.com/xackery/talkeq/userdb"
 )
 
 func (t *Discord) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -33,7 +35,7 @@ func (t *Discord) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate
 		return
 	}
 
-	ign = t.users.Name(m.Author.ID)
+	ign = userdb.Name(m.Author.ID)
 	if ign == "" {
 		ign = t.GetIGNName(s, m.Author.ID)
 		//disabled this code since it would cache results and remove dynamics
@@ -111,35 +113,27 @@ func (t *Discord) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate
 				}
 				log.Info().Str("message", req.Message).Int("route", routeIndex).Msg("[discord->telnet]")
 			}
-		case "nats":
-			channelID, err := strconv.Atoi(route.ChannelID)
-			if err != nil {
-				log.Warn().Err(err).Str("channelID", route.ChannelID).Int("route", routeIndex).Msgf("[discord->nats] channelID")
-			}
 
-			var guildID int
-			if len(route.GuildID) > 0 {
-				guildID, err = strconv.Atoi(route.GuildID)
-				if err != nil {
-					log.Warn().Err(err).Str("guildID", route.GuildID).Int("route", routeIndex).Msgf("[discord->nats] atoi guildID")
-				}
-			}
-
-			req := request.NatsSend{
-				Ctx:       ctx,
-				ChannelID: int32(channelID),
-				Message:   buf.String(),
-				GuildID:   int32(guildID),
-			}
-			for _, s := range t.subscribers {
-				err := s(req)
-				if err != nil {
-					log.Warn().Err(err).Str("message", req.Message).Int("route", routeIndex).Msg("[discord->nats]")
-				}
-				log.Info().Str("message", req.Message).Int("route", routeIndex).Msg("[discord->nats]")
-			}
 		default:
 			log.Warn().Int("route", routeIndex).Msgf("[discord] invalid target: %s", route.Target)
+		}
+	}
+	//check if channel is a guild one
+	guildID := guilddb.GuildID(m.ChannelID)
+	if guildID > 0 {
+		routes++
+
+		req := request.TelnetSend{
+			Ctx:     ctx,
+			Message: fmt.Sprintf("guildsay %s %d %s", ign, guildID, msg),
+		}
+		for _, s := range t.subscribers {
+			err := s(req)
+			if err != nil {
+				log.Warn().Err(err).Str("message", req.Message).Int("guildID", guildID).Msg("[discord->telnet]")
+				continue
+			}
+			log.Info().Str("message", req.Message).Int("guildID", guildID).Msg("[discord->telnet]")
 		}
 	}
 	if routes == 0 {

@@ -12,27 +12,24 @@ import (
 	"sync"
 
 	"github.com/gorilla/mux"
-	"github.com/pkg/errors"
 	"github.com/xackery/log"
 	"github.com/xackery/talkeq/config"
-	"github.com/xackery/talkeq/database"
 	"github.com/xackery/talkeq/discord"
+	"github.com/xackery/talkeq/registerdb"
 	"github.com/xackery/talkeq/request"
 )
 
 // API represents the api service
 type API struct {
-	ctx             context.Context
-	cancel          context.CancelFunc
-	isConnected     bool
-	mutex           sync.RWMutex
-	config          config.API
-	conn            *sql.DB
-	subscribers     []func(interface{}) error
-	isInitialState  bool
-	registerManager *database.RegisterManager
-	userManager     *database.UserManager
-	discord         *discord.Discord
+	ctx            context.Context
+	cancel         context.CancelFunc
+	isConnected    bool
+	mutex          sync.RWMutex
+	config         config.API
+	conn           *sql.DB
+	subscribers    []func(interface{}) error
+	isInitialState bool
+	discord        *discord.Discord
 }
 
 const (
@@ -41,7 +38,7 @@ const (
 )
 
 // New creates a new api endpoint
-func New(ctx context.Context, config config.API, userManager *database.UserManager, guildManager *database.GuildManager, discord *discord.Discord) (*API, error) {
+func New(ctx context.Context, config config.API, discord *discord.Discord) (*API, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	t := &API{
 		ctx:            ctx,
@@ -49,7 +46,6 @@ func New(ctx context.Context, config config.API, userManager *database.UserManag
 		cancel:         cancel,
 		isInitialState: true,
 		discord:        discord,
-		userManager:    userManager,
 	}
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -60,9 +56,9 @@ func New(ctx context.Context, config config.API, userManager *database.UserManag
 
 	var err error
 	if config.APIRegister.IsEnabled {
-		t.registerManager, err = database.NewRegisterManager(ctx, &config)
+		err = registerdb.New(&config)
 		if err != nil {
-			return nil, errors.Wrap(err, "registermanager")
+			return nil, fmt.Errorf("registerdb.New: %w", err)
 		}
 
 	}
@@ -116,7 +112,7 @@ func (t *API) Command(req request.APICommand) error {
 			msg := request.DiscordSend{
 				Ctx:       ctx,
 				ChannelID: req.FromDiscordChannelID,
-				Message:   fmt.Sprintf("usage: `!register <character>`\nThis command will bind your discord account to provided Everquest character. Your messages in discord will be seen in game as this character name.\nTo change your character after registering, simply repeat process."),
+				Message:   "usage: `!register <character>`\nThis command will bind your discord account to provided Everquest character. Your messages in discord will be seen in game as this character name.\nTo change your character after registering, simply repeat process.",
 			}
 			for _, s := range t.subscribers {
 				err := s(msg)
@@ -128,7 +124,7 @@ func (t *API) Command(req request.APICommand) error {
 		}
 		character := args[1]
 
-		entry, err := t.registerManager.Entry(req.FromDiscordNameID)
+		entry, err := registerdb.Entry(req.FromDiscordNameID)
 		if err == nil { //existing entry found
 			if entry.Status != "Denied" && entry.Timeout >= time.Now().Unix() {
 				remainingTime := time.Until(time.Unix(entry.Timeout, 0)).Minutes()
@@ -173,7 +169,7 @@ func (t *API) Command(req request.APICommand) error {
 		if err != nil {
 			return fmt.Errorf("lastSentMessage: %w", err)
 		}
-		t.registerManager.Set(req.FromDiscordNameID, req.FromDiscordName, character, channelID, messageID, "In Queue", time.Now().Add(30*time.Second).Unix())
+		registerdb.Set(req.FromDiscordNameID, req.FromDiscordName, character, channelID, messageID, "In Queue", time.Now().Add(30*time.Second).Unix())
 	}
 	return nil
 }

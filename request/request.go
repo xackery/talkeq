@@ -55,12 +55,3 @@ type PEQEditorSQL struct {
 	ChannelKeyword string
 	ToName         string
 }
-
-// NatsSend requests a message to nats
-type NatsSend struct {
-	Ctx       context.Context
-	ChannelID int32
-	Message   string
-	From      string
-	GuildID   int32
-}

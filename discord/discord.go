@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/xackery/log"
 	"github.com/xackery/talkeq/config"
-	"github.com/xackery/talkeq/database"
 	"github.com/xackery/talkeq/request"
 )
 
@@ -35,15 +34,13 @@ type Discord struct {
 	conn          *discordgo.Session
 	subscribers   []func(interface{}) error
 	id            string
-	users         *database.UserManager
-	guilds        *database.GuildManager
 	lastMessageID string
 	lastChannelID string
 	commands      map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) (string, error)
 }
 
 // New creates a new discord connect
-func New(ctx context.Context, config config.Discord, userManager *database.UserManager, guildManager *database.GuildManager) (*Discord, error) {
+func New(ctx context.Context, config config.Discord) (*Discord, error) {
 	log := log.New()
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -51,8 +48,6 @@ func New(ctx context.Context, config config.Discord, userManager *database.UserM
 		ctx:    ctx,
 		cancel: cancel,
 		config: config,
-		users:  userManager,
-		guilds: guildManager,
 	}
 	t.commands = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) (string, error){
 		"who": t.who,

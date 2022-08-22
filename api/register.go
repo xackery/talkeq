@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/xackery/log"
+	"github.com/xackery/talkeq/registerdb"
+	"github.com/xackery/talkeq/userdb"
 )
 
 func (t *API) registerConfirm(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +41,7 @@ func (t *API) registerConfirm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entry, err := t.registerManager.FindByCode(code)
+	entry, err := registerdb.FindByCode(code)
 	if err != nil {
 		resp.Message = err.Error()
 		err := json.NewEncoder(w).Encode(resp)
@@ -59,9 +61,9 @@ func (t *API) registerConfirm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if strings.ToLower(action) == "deny" {
-		err = t.registerManager.Update(entry.DiscordID, "Denied", time.Now().Add(24*time.Hour).Unix())
+		err = registerdb.Update(entry.DiscordID, "Denied", time.Now().Add(24*time.Hour).Unix())
 		if err != nil {
-			log.Warn().Err(err).Msg("registerManager update")
+			log.Warn().Err(err).Msg("registerdb update deny")
 		}
 		resp.Message = "denied request"
 		err = json.NewEncoder(w).Encode(&Resp{})
@@ -71,9 +73,9 @@ func (t *API) registerConfirm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if strings.ToLower(action) == "report" {
-		err = t.registerManager.Update(entry.DiscordID, "Reported", time.Now().Add(24*time.Hour).Unix())
+		err = registerdb.Update(entry.DiscordID, "Reported", time.Now().Add(24*time.Hour).Unix())
 		if err != nil {
-			log.Warn().Err(err).Msg("registerManager update")
+			log.Warn().Err(err).Msg("registerdb update report")
 		}
 		resp.Message = "reported request"
 		err = json.NewEncoder(w).Encode(&Resp{})
@@ -91,11 +93,11 @@ func (t *API) registerConfirm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	t.userManager.Set(entry.DiscordID, entry.CharacterName)
+	userdb.Set(entry.DiscordID, entry.CharacterName)
 
-	err = t.registerManager.Update(entry.DiscordID, "Confirmed", time.Now().Add(24*time.Hour).Unix())
+	err = registerdb.Update(entry.DiscordID, "Confirmed", time.Now().Add(24*time.Hour).Unix())
 	if err != nil {
-		log.Warn().Err(err).Msg("registerManager update")
+		log.Warn().Err(err).Msg("registerdb update")
 	}
 	err = t.discord.EditMessage(entry.ChannelID, entry.MessageID, fmt.Sprintf("I sent a /tell to %s, you have 2 minutes to go in game and [ accept ] it. Status: Confirmed", entry.CharacterName))
 	if err != nil {
@@ -111,5 +113,4 @@ func (t *API) registerConfirm(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Warn().Err(err).Msg("encode response")
 	}
-	return
 }
