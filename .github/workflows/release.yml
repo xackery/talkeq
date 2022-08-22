@@ -29,30 +29,6 @@ jobs:
         GOARCH: amd64
         GOOS: linux
         VERSION: ${{ env.RELEASE_VERSION }}
-  release-darwin-386:
-    name: release darwin/386
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@master
-    - name: compile and release
-      uses: xackery/go-release.action@master
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GOARCH: "386"
-        GOOS: darwin
-        VERSION: ${{ env.RELEASE_VERSION }}
-  release-darwin-amd64:
-    name: release darwin/amd64
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@master
-    - name: compile and release
-      uses: xackery/go-release.action@master
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GOARCH: amd64
-        GOOS: darwin
-        VERSION: ${{ env.RELEASE_VERSION }}
   release-windows-386:
     name: release windows/386
     runs-on: ubuntu-latest
