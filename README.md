@@ -36,10 +36,11 @@ Telnet|ooc
 * Go to https://discordapp.com/developers/ and sign in
 * Click New Application the top right area
 * Write anything you wish for the app name, click Create App
-* Copy the CLIENT ID into your talkeq.conf's discord client_id section
-* Select your server, and allow it.
+* Start the talkeq executable once. This generates a talkeq.conf file
+* Copy the Application ID into your talkeq.conf's discord client_id section
 * On the left pane, click Bot
 * Press Add Bot, Yes, do it!
+* Click the Reset Token button, Yes, do it!
 * Press the copy button in the Token section
 * Uncheck the Public Bot option
 * Replace on this link's {CLIENT_ID} field with the client ID you obtained earlier. https://discordapp.com/oauth2/authorize?&client_id={CLIENT_ID}&scope=bot&permissions=268504064 
