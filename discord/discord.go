@@ -143,6 +143,13 @@ func (t *Discord) Connect(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	//TODO: get /who working
+	/*err = t.whoRegister()
+	if err != nil {
+		return fmt.Errorf("whoRegister: %w", err)
+	}*/
+
 	return nil
 }
 
@@ -269,9 +276,12 @@ func (t *Discord) SetChannelName(channelID string, name string) error {
 // GetIGNName returns an IGN: tagged name from discord if applicable
 func (t *Discord) GetIGNName(s *discordgo.Session, serverID string, userid string) string {
 	log := log.New()
+	if serverID == "" {
+		serverID = t.config.ServerID
+	}
 	member, err := s.GuildMember(serverID, userid)
 	if err != nil {
-		log.Warn().Err(err).Str("author_id", userid).Msg("getIGNName")
+		log.Warn().Err(err).Str("author_id", userid).Str("server_id", serverID).Msg("getIGNName")
 		return ""
 	}
 	roles, err := s.GuildRoles(serverID)

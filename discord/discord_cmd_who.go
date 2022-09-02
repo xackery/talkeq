@@ -2,18 +2,31 @@ package discord
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/xackery/talkeq/character"
+	"github.com/xackery/log"
+	"github.com/xackery/talkeq/characterdb"
 )
+
+func (t *Discord) whoRegister() error {
+	log := log.New()
+	log.Debug().Msgf("registering who command")
+	_, err := t.conn.ApplicationCommandCreate(t.conn.State.User.ID, t.config.ServerID, &discordgo.ApplicationCommand{
+		Name:        "who",
+		Description: "get a list of players on server, can filter by zone or name with /who <filter>",
+	})
+	if err != nil {
+		return fmt.Errorf("whoRegister commandCreate: %w", err)
+	}
+	return nil
+}
 
 func (t *Discord) who(s *discordgo.Session, i *discordgo.InteractionCreate) (content string, err error) {
 	appCmdData := i.ApplicationCommandData()
-	if len(appCmdData.Options) == 0 {
+	/*	if len(appCmdData.Options) == 0 {
 		content = "usage: /who all, /who <name>"
 		return
-	}
+	}*/
 	arg := ""
 	if len(appCmdData.Options) > 0 {
 		arg = fmt.Sprintf("%s", i.ApplicationCommandData().Options[0].Value)
@@ -22,33 +35,6 @@ func (t *Discord) who(s *discordgo.Session, i *discordgo.InteractionCreate) (con
 		}
 	}
 
-	content = "There are no players online"
-	if arg != "" {
-		content = fmt.Sprintf("There are not players who match '%s' online", arg)
-	}
-
-	counter := 0
-	players := character.CharactersOnline()
-	for _, user := range players {
-		if arg == "" {
-			content += fmt.Sprintf("%s\n", user)
-			counter++
-			continue
-		}
-
-		if !strings.Contains(user.Name, arg) {
-			continue
-		}
-		content += fmt.Sprintf("%s\n", user)
-		counter++
-	}
-
-	if arg == "" {
-		content = fmt.Sprintf("There are %d players online:\n%s", counter, content)
-		return
-	}
-	if counter > 0 {
-		content = fmt.Sprintf("There are %d players who match '%s':\n%s", counter, arg, content)
-	}
+	content = characterdb.CharactersOnline(arg)
 	return
 }

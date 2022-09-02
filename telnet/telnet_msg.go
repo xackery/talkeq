@@ -55,6 +55,8 @@ func (t *Telnet) convertLinks(message string) string {
 func (t *Telnet) parseMessage(msg string) bool {
 	log := log.New()
 	msg = t.convertLinks(msg)
+	msg = strings.ReplaceAll(msg, "&PCT;", `%`)
+
 	for routeIndex, route := range t.config.Routes {
 		if route.Trigger.Custom != "" {
 			continue
@@ -66,7 +68,6 @@ func (t *Telnet) parseMessage(msg string) bool {
 			continue
 		}
 		matches := pattern.FindAllStringSubmatch(msg, -1)
-		log.Debug().Msgf("regex %s vs %s: %d", route.Trigger.Regex, msg, len(matches))
 		if len(matches) == 0 {
 			continue
 		}

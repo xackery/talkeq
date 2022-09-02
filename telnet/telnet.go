@@ -10,6 +10,7 @@ import (
 	"github.com/xackery/log"
 
 	"github.com/pkg/errors"
+	"github.com/xackery/talkeq/characterdb"
 	"github.com/xackery/talkeq/config"
 	"github.com/xackery/talkeq/request"
 	"github.com/ziutek/telnet"
@@ -31,6 +32,9 @@ type Telnet struct {
 	subscribers    []func(interface{}) error
 	isNewTelnet    bool
 	isInitialState bool
+	isPlayerDump   bool
+	lastPlayerDump time.Time
+	characters     map[string]*characterdb.Character
 }
 
 // New creates a new telnet connect
@@ -224,6 +228,10 @@ func (t *Telnet) loop(ctx context.Context) {
 		}
 
 		log.Debug().Str("msg", msg).Msg("raw telnet echo")
+
+		if t.parsePlayerEntries(msg) {
+			continue
+		}
 		if t.parsePlayersOnline(msg) {
 			continue
 		}
