@@ -1,7 +1,6 @@
 name: OSSAR (binskim etc)
 on: [push]
 jobs:
-
   build:
     name: OSSAR
     runs-on: ubuntu-latest
