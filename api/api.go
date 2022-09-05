@@ -12,11 +12,11 @@ import (
 	"sync"
 
 	"github.com/gorilla/mux"
-	"github.com/xackery/log"
 	"github.com/xackery/talkeq/config"
 	"github.com/xackery/talkeq/discord"
 	"github.com/xackery/talkeq/registerdb"
 	"github.com/xackery/talkeq/request"
+	"github.com/xackery/talkeq/tlog"
 )
 
 // API represents the api service
@@ -77,7 +77,6 @@ func (t *API) Subscribe(ctx context.Context, onMessage func(interface{}) error) 
 // Command sends a API command
 func (t *API) Command(req request.APICommand) error {
 	ctx := req.Ctx
-	log := log.New()
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 	if !t.config.IsEnabled {
@@ -89,7 +88,7 @@ func (t *API) Command(req request.APICommand) error {
 	}
 
 	if strings.Index(req.Message, "!") != 0 {
-		log.Debug().Msgf("ignoring non command")
+		tlog.Debugf("[api] ignoring non command")
 		return nil
 	}
 	args := []string{req.Message}
@@ -97,14 +96,14 @@ func (t *API) Command(req request.APICommand) error {
 		args = strings.Split(req.Message, " ")
 	}
 	if len(args[0]) < 1 {
-		log.Debug().Msg("command too short to parse")
+		tlog.Debugf("[api] command too short to parse")
 		return nil
 	}
 
 	switch strings.ToLower(args[0][1:]) {
 	case "register":
 		if !t.config.APIRegister.IsEnabled {
-			log.Debug().Msg("!register command attempted, but ignored (not enabled)")
+			tlog.Debugf("[api] !register command attempted, but ignored (not enabled)")
 			return nil
 		}
 
@@ -117,7 +116,7 @@ func (t *API) Command(req request.APICommand) error {
 			for _, s := range t.subscribers {
 				err := s(msg)
 				if err != nil {
-					log.Warn().Err(err).Msg("[api->discord]")
+					tlog.Warnf("[api-discord] %s", err)
 				}
 			}
 			return nil
@@ -144,7 +143,7 @@ func (t *API) Command(req request.APICommand) error {
 				for _, s := range t.subscribers {
 					err = s(reply)
 					if err != nil {
-						log.Warn().Err(err).Msg("[api->discord] reply to !register")
+						tlog.Warnf("[api->discord] reply to !register failed: %s", err)
 					}
 				}
 				return nil
@@ -159,11 +158,10 @@ func (t *API) Command(req request.APICommand) error {
 		for _, s := range t.subscribers {
 			err = s(reply)
 			if err != nil {
-				log.Warn().Err(err).Msg("[api->discord] reply to !register")
+				tlog.Warnf("[api->discord] reply to !register: %s", err)
 				continue
 			}
-			log.Info().Str("message", reply.Message).Msg("[api->discord] !register")
-
+			tlog.Infof("[api->discord] !register message: %s", reply.Message)
 		}
 		channelID, messageID, err := t.discord.LastSentMessage()
 		if err != nil {
@@ -176,17 +174,16 @@ func (t *API) Command(req request.APICommand) error {
 
 // Connect establishes a server for API
 func (t *API) Connect(ctx context.Context) error {
-	log := log.New()
 	var err error
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
 	if !t.config.IsEnabled {
-		log.Debug().Msg("api is disabled, skipping connect")
+		tlog.Debugf("[api] is disabled, skipping connect")
 		return nil
 	}
 
-	log.Info().Msgf("api listening on %s...", t.config.Host)
+	tlog.Infof("[api] listening on %s...", t.config.Host)
 
 	if t.conn != nil {
 		t.conn.Close()
@@ -205,7 +202,7 @@ func (t *API) Connect(ctx context.Context) error {
 	go func() {
 		err = http.ListenAndServe(t.config.Host, r)
 		if err != nil {
-			log.Error().Err(err).Msg("api listenandserver")
+			tlog.Errorf("[api] listenandserve failed: %s", err)
 		}
 		t.mutex.Lock()
 		t.isConnected = false
@@ -214,7 +211,7 @@ func (t *API) Connect(ctx context.Context) error {
 
 	t.isConnected = true
 
-	log.Info().Msgf("api started successfully")
+	tlog.Infof("[api] started successfully")
 
 	return nil
 }
@@ -230,18 +227,17 @@ func (t *API) IsConnected() bool {
 // Disconnect stops a previously started connection with Discord.
 // If called while a connection is not active, returns nil
 func (t *API) Disconnect(ctx context.Context) error {
-	log := log.New()
 	if !t.config.IsEnabled {
-		log.Debug().Msg("api is disabled, skipping disconnect")
+		tlog.Debugf("[api] is disabled, skipping disconnect")
 		return nil
 	}
 	if !t.isConnected {
-		log.Debug().Msg("api is already disconnected, skipping disconnect")
+		tlog.Debugf("[api] is already disconnected, skipping disconnect")
 		return nil
 	}
 	err := t.conn.Close()
 	if err != nil {
-		log.Warn().Err(err).Msg("api disconnect")
+		tlog.Warnf("[api] disconect failed: %s", err)
 	}
 	t.conn = nil
 	t.isConnected = false
@@ -249,11 +245,10 @@ func (t *API) Disconnect(ctx context.Context) error {
 }
 
 func (t *API) index(w http.ResponseWriter, r *http.Request) {
-	log := log.New()
 	w.Header().Set("Content-Type", "application/json")
 	type Resp struct{}
 	err := json.NewEncoder(w).Encode(&Resp{})
 	if err != nil {
-		log.Warn().Err(err).Msg("encode response")
+		tlog.Warnf("[api] encode response failed: %s", err)
 	}
 }

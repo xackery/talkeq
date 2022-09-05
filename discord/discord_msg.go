@@ -7,20 +7,19 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/xackery/log"
 	"github.com/xackery/talkeq/guilddb"
 	"github.com/xackery/talkeq/request"
+	"github.com/xackery/talkeq/tlog"
 	"github.com/xackery/talkeq/userdb"
 )
 
 func (t *Discord) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	ctx := context.Background()
-	log := log.New()
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	if len(t.subscribers) == 0 {
-		log.Debug().Msg("[discord] message, but no subscribers to notify, ignoring")
+		tlog.Debugf("[discord] message, but no subscribers to notify, ignoring")
 		return
 	}
 
@@ -31,7 +30,7 @@ func (t *Discord) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate
 	}
 	msg = sanitize(msg)
 	if len(msg) < 1 {
-		log.Debug().Str("original message", m.ContentWithMentionsReplaced()).Msg("[discord] message after sanitize too small, ignoring")
+		tlog.Debugf("[discord] message after sanitize too small, ignoring, original message: %s", m.ContentWithMentionsReplaced())
 		return
 	}
 
@@ -46,7 +45,7 @@ func (t *Discord) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate
 
 	//ignore bot messages
 	if m.Author.ID == t.id {
-		log.Debug().Msgf("[discord] bot %s ignored (message: %s)", m.Author.ID, msg)
+		tlog.Debugf("[discord] bot %s ignored (message: %s)", m.Author.ID, msg)
 		return
 	}
 
@@ -61,17 +60,17 @@ func (t *Discord) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate
 			FromDiscordIGN:       ign,
 			Message:              msg,
 		}
-		for _, s := range t.subscribers {
+		for i, s := range t.subscribers {
 			err := s(req)
 			if err != nil {
-				log.Warn().Err(err).Msg("[discord->api]")
+				tlog.Warnf("[discord->subscriber %d] request failed: %s", i, err)
 			}
-			log.Info().Str("from", m.Author.Username).Str("message", msg).Msg("[discord->api]")
+			tlog.Infof("[discord->subscriber %d] from %s: %s", m.Author.Username, msg)
 		}
 	}
 
 	if len(ign) == 0 {
-		log.Warn().Msg("[discord] ign not found, discarding")
+		tlog.Warn("[discord] ign not found, discarding")
 		return
 	}
 	routes := 0
@@ -94,7 +93,7 @@ func (t *Discord) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate
 			msg,
 			route.ChannelID,
 		}); err != nil {
-			log.Warn().Err(err).Int("route", routeIndex).Msg("[discord] execute")
+			tlog.Warnf("[discord] execute route %d failed: %s", routeIndex, err)
 			continue
 		}
 
@@ -108,14 +107,14 @@ func (t *Discord) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate
 			for _, s := range t.subscribers {
 				err := s(req)
 				if err != nil {
-					log.Warn().Err(err).Str("message", req.Message).Int("route", routeIndex).Msg("[discord->telnet]")
+					tlog.Warnf("[discord->telnet] route %d message '%s' failed: %s", routeIndex, req.Message, err)
 					continue
 				}
-				log.Info().Str("message", req.Message).Int("route", routeIndex).Msg("[discord->telnet]")
+				tlog.Infof("[discord->telnet] route %d: %s", routeIndex, req.Message)
 			}
 
 		default:
-			log.Warn().Int("route", routeIndex).Msgf("[discord] invalid target: %s", route.Target)
+			tlog.Warnf("[discord] route %d failed: target %s is invalid", routeIndex, route.Target)
 		}
 	}
 	//check if channel is a guild one
@@ -127,16 +126,16 @@ func (t *Discord) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate
 			Ctx:     ctx,
 			Message: fmt.Sprintf("guildsay %s %d %s", ign, guildID, msg),
 		}
-		for _, s := range t.subscribers {
+		for i, s := range t.subscribers {
 			err := s(req)
 			if err != nil {
-				log.Warn().Err(err).Str("message", req.Message).Int("guildID", guildID).Msg("[discord->telnet]")
+				tlog.Warnf("[discord->subscriber %d] guildID %d message %s failed: %s", i, guildID, req.Message, err)
 				continue
 			}
-			log.Info().Str("message", req.Message).Int("guildID", guildID).Msg("[discord->telnet]")
+			tlog.Infof("[discord->subscriber %d] guildID %d message: %s", i, guildID, req.Message)
 		}
 	}
 	if routes == 0 {
-		log.Debug().Msg("message discarded, not routes match")
+		tlog.Debugf("[discord] message discarded, not routes match")
 	}
 }

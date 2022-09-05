@@ -8,8 +8,8 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/jbsmith7741/toml"
-	"github.com/xackery/log"
 	"github.com/xackery/talkeq/config"
+	"github.com/xackery/talkeq/tlog"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -43,8 +43,7 @@ func New(config *config.API) error {
 	if isStarted {
 		return fmt.Errorf("already started")
 	}
-	log := log.New()
-	log.Debug().Msgf("initializing register db")
+	tlog.Debugf("[registerdb] initializing")
 	registrationDatabasePath = config.APIRegister.RegistrationDatabasePath
 	db.Registrations = make(map[string]RegisterEntry)
 
@@ -87,19 +86,18 @@ func New(config *config.API) error {
 
 func loop(watcher *fsnotify.Watcher) {
 	defer watcher.Close()
-	log := log.New()
 	for {
 		select {
 		case event, ok := <-watcher.Events:
 			if !ok {
-				log.Warn().Msg("register database failed to read file")
+				tlog.Warn("[registerdb] failed to read file")
 				return
 			}
 			if event.Op&fsnotify.Write != fsnotify.Write {
 				continue
 			}
 			continue
-			/*log.Debug().Msg("registers database modified, reloading")
+			/*tlog.Debugf("registers database modified, reloading")
 			err := u.reloadDatabase()
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to reload registers database")
@@ -108,7 +106,7 @@ func loop(watcher *fsnotify.Watcher) {
 			if !ok {
 				return
 			}
-			log.Warn().Err(err).Msg("register database failed to read file")
+			tlog.Warnf("[registerdb] failed: %s", err)
 		}
 	}
 }
@@ -151,7 +149,6 @@ func save() error {
 func Set(discordID string, discordName string, characterName string, channelID string, messageID string, status string, timeout int64) {
 	mu.Lock()
 	defer mu.Unlock()
-	log := log.New()
 	re := RegisterEntry{
 		DiscordID:     discordID,
 		DiscordName:   discordName,
@@ -165,7 +162,7 @@ func Set(discordID string, discordName string, characterName string, channelID s
 	db.Registrations[discordID] = re
 	err := save()
 	if err != nil {
-		log.Warn().Err(err).Msgf("save")
+		tlog.Warnf("[registerdb] save failed: %s", err)
 	}
 }
 
@@ -191,8 +188,7 @@ func FindByCode(code string) (entry RegisterEntry, err error) {
 func QueuedEntries() (entries []RegisterEntry, err error) {
 	mu.Lock()
 	defer mu.Unlock()
-	log := log.New()
-	log.Debug().Int("registrations", len(db.Registrations)).Msg("[api]")
+	tlog.Debugf("[registerdb] registrations %d", len(db.Registrations))
 	for _, entry := range db.Registrations {
 		if entry.Timeout < time.Now().Unix() {
 			continue

@@ -14,9 +14,9 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
-	"github.com/xackery/log"
 	"github.com/xackery/talkeq/config"
 	"github.com/xackery/talkeq/request"
+	"github.com/xackery/talkeq/tlog"
 )
 
 const (
@@ -41,7 +41,6 @@ type Discord struct {
 
 // New creates a new discord connect
 func New(ctx context.Context, config config.Discord) (*Discord, error) {
-	log := log.New()
 	ctx, cancel := context.WithCancel(ctx)
 
 	t := &Discord{
@@ -56,7 +55,7 @@ func New(ctx context.Context, config config.Discord) (*Discord, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	log.Debug().Msg("verifying discord configuration")
+	tlog.Debugf("[discord] verifying configuration")
 
 	if !config.IsEnabled {
 		return t, nil
@@ -79,17 +78,16 @@ func New(ctx context.Context, config config.Discord) (*Discord, error) {
 
 // Connect establishes a new connection with Discord
 func (t *Discord) Connect(ctx context.Context) error {
-	log := log.New()
 	var err error
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	if !t.config.IsEnabled {
-		log.Debug().Msg("discord is disabled, skipping connect")
+		tlog.Debugf("[discord] is disabled, skipping connect")
 		return nil
 	}
 
-	log.Info().Msgf("discord connecting to server_id %s...", t.config.ServerID)
+	tlog.Infof("[discord] connecting to server_id %s...", t.config.ServerID)
 
 	if t.conn != nil {
 		t.conn.Close()
@@ -115,12 +113,12 @@ func (t *Discord) Connect(ctx context.Context) error {
 	go t.loop(ctx)
 
 	t.isConnected = true
-	log.Info().Msg("discord connected successfully")
+	tlog.Infof("[discord] connected successfully")
 	var st *discordgo.Channel
 	for _, route := range t.config.Routes {
 		st, err = t.conn.Channel(route.Trigger.ChannelID)
 		if err != nil {
-			log.Error().Msgf("your bot appears to not be allowed to listen to route %s's channel %s. visit https://discordapp.com/oauth2/authorize?&client_id=%s&scope=bot&permissions=268504080 and authorize", route.Trigger.ChannelID, t.config.ClientID)
+			tlog.Errorf("[discord] your bot appears to not be allowed to listen to route %s's channel %s. visit https://discordapp.com/oauth2/authorize?&client_id=%s&scope=bot&permissions=268504080 and authorize", route.Trigger.ChannelID, t.config.ClientID)
 			if runtime.GOOS == "windows" {
 				option := ""
 				fmt.Println("press a key then enter to exit.")
@@ -128,7 +126,7 @@ func (t *Discord) Connect(ctx context.Context) error {
 			}
 			os.Exit(1)
 		}
-		log.Info().Msgf("triggering [discord->%s] chat in #%s", route.Target, st.Name)
+		tlog.Infof("[discord->%s] registered route for chat in #%s", route.Target, st.Name)
 	}
 
 	myUser, err := t.conn.User("@me")
@@ -137,7 +135,7 @@ func (t *Discord) Connect(ctx context.Context) error {
 	}
 
 	t.id = myUser.ID
-	log.Debug().Str("id", t.id).Msg("@me")
+	tlog.Debugf("[discord] @me id: %s", t.id)
 
 	err = t.StatusUpdate(ctx, 0, "Status: Online")
 	if err != nil {
@@ -154,11 +152,10 @@ func (t *Discord) Connect(ctx context.Context) error {
 }
 
 func (t *Discord) loop(ctx context.Context) {
-	log := log.New()
 	for {
 		select {
 		case <-ctx.Done():
-			log.Debug().Msg("discord loop exit")
+			tlog.Debugf("[discord] loop exit")
 			return
 		default:
 		}
@@ -205,18 +202,17 @@ func (t *Discord) IsConnected() bool {
 // Disconnect stops a previously started connection with Discord.
 // If called while a connection is not active, returns nil
 func (t *Discord) Disconnect(ctx context.Context) error {
-	log := log.New()
 	if !t.config.IsEnabled {
-		log.Debug().Msg("discord is disabled, skipping disconnect")
+		tlog.Debugf("[discord] is disabled, skipping disconnect")
 		return nil
 	}
 	if !t.isConnected {
-		log.Debug().Msg("discord is already disconnected, skipping disconnect")
+		tlog.Debugf("[discord] already disconnected, skipping disconnect")
 		return nil
 	}
 	err := t.conn.Close()
 	if err != nil {
-		log.Warn().Err(err).Msg("discord disconnect")
+		tlog.Warnf("[discord] disconnect failed: %s", err)
 	}
 	t.conn = nil
 	t.isConnected = false
@@ -262,31 +258,30 @@ func sanitize(data string) string {
 
 // SetChannelName is used for voice channel setting via SQLReport
 func (t *Discord) SetChannelName(channelID string, name string) error {
-	log := log.New()
 	if !t.isConnected {
 		return fmt.Errorf("discord not connected")
 	}
-	if _, err := t.conn.ChannelEdit(channelID, name); err != nil {
+
+	if _, err := t.conn.ChannelEdit(channelID, &discordgo.ChannelEdit{Name: name}); err != nil {
 		return errors.Wrap(err, "edit channel failed")
 	}
-	log.Debug().Msgf("setting channel to %s", name)
+	tlog.Debugf("[discord] setting channel to %s", name)
 	return nil
 }
 
 // GetIGNName returns an IGN: tagged name from discord if applicable
 func (t *Discord) GetIGNName(s *discordgo.Session, serverID string, userid string) string {
-	log := log.New()
 	if serverID == "" {
 		serverID = t.config.ServerID
 	}
 	member, err := s.GuildMember(serverID, userid)
 	if err != nil {
-		log.Warn().Err(err).Str("author_id", userid).Str("server_id", serverID).Msg("getIGNName")
+		tlog.Warnf("[discord] guildMember failed for author_id %s, server_id %s: %s", userid, serverID, err)
 		return ""
 	}
 	roles, err := s.GuildRoles(serverID)
 	if err != nil {
-		log.Warn().Err(err).Str("server_id", serverID).Msg("get roles")
+		tlog.Warnf("[discord] guildRoles failed for server_id %s: %s", serverID, err)
 		return ""
 	}
 
@@ -320,7 +315,6 @@ func (t *Discord) LastSentMessage() (channelID string, messageID string, err err
 
 // EditMessage lets you edit a previously sent message
 func (t *Discord) EditMessage(channelID string, messageID string, message string) error {
-	log := log.New()
 	if !t.config.IsEnabled {
 		return fmt.Errorf("not enabled")
 	}
@@ -331,6 +325,6 @@ func (t *Discord) EditMessage(channelID string, messageID string, message string
 	if err != nil {
 		return fmt.Errorf("edit: %w", err)
 	}
-	log.Debug().Msgf("edited message before: %s, after: %s", messageID, msg.ID)
+	tlog.Debugf("[discord] edited message before: %s, after: %s", messageID, msg.ID)
 	return nil
 }

@@ -9,8 +9,8 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/xackery/log"
 	"github.com/xackery/talkeq/config"
+	"github.com/xackery/talkeq/tlog"
 )
 
 var (
@@ -27,8 +27,7 @@ func New(config *config.Config) error {
 	}
 	guildsDatabasePath = config.GuildsDatabasePath
 
-	log := log.New()
-	log.Debug().Msgf("initializing guild db")
+	tlog.Debugf("[guilddb] initializing")
 	_, err := os.Stat(guildsDatabasePath)
 	if os.IsNotExist(err) {
 		err = ioutil.WriteFile(guildsDatabasePath, []byte(`# guildid:channelid #comment`), 0644)
@@ -62,29 +61,28 @@ func loop(watcher *fsnotify.Watcher) {
 	mu.Lock()
 	isStarted = true
 	mu.Unlock()
-	log := log.New()
 
 	defer watcher.Close()
 	for {
 		select {
 		case event, ok := <-watcher.Events:
 			if !ok {
-				log.Warn().Msg("guild database failed to read file")
+				tlog.Warn("[guilddb] failed to read file")
 				return
 			}
 			if event.Op&fsnotify.Write != fsnotify.Write {
 				continue
 			}
-			log.Debug().Msg("guilds database modified, reloading")
+			tlog.Debugf("[guilddb] modified, reloading")
 			err := reload()
 			if err != nil {
-				log.Warn().Err(err).Msg("failed to reload guilds database")
+				tlog.Warnf("[guilddb] failed to reload: %s", err)
 			}
 		case err, ok := <-watcher.Errors:
 			if !ok {
 				return
 			}
-			log.Warn().Err(err).Msg("guild database failed to read file")
+			tlog.Warnf("[guilddb] failed to read file: %s", err)
 		}
 	}
 }
@@ -96,31 +94,39 @@ func reload() error {
 	if err != nil {
 		return fmt.Errorf("readFile: %w", err)
 	}
-	log := log.New()
 
 	ng := make(map[int]string)
 	lines := strings.Split(string(data), "\n")
 	for lineNumber, line := range lines {
 		lineNumber++
+
+		line = strings.TrimSpace(line)
+		if len(line) < 1 {
+			//tlog.Debugf("[guilddb] line %d skipped, empty", lineNumber)
+			continue
+		}
+		if line[0] == '#' {
+			continue
+		}
 		p := strings.Index(line, ":")
 		if p < 1 {
-			log.Warn().Int("line number", lineNumber).Msgf("%s no : exists", guildsDatabasePath)
+			tlog.Debugf("[guilddb] line %d skipped, no : found", lineNumber)
 			continue
 		}
 		sid := line[0:p]
 		if len(sid) < 1 {
-			log.Warn().Int("line number", lineNumber).Msgf("%s guildid too short", guildsDatabasePath)
+			tlog.Warnf("[guilddb] line %d failed, guildid too short", lineNumber)
 			continue
 		}
 		iid, err := strconv.Atoi(sid)
 		if err != nil {
-			log.Warn().Int("line number", lineNumber).Msgf("%s guildid not valid int", guildsDatabasePath)
+			tlog.Warnf("[guilddb] line %d failed, guildid not a valid integer", lineNumber)
 			continue
 		}
 		id := int(iid)
 		name := line[p+1:]
 		if len(name) < 3 {
-			log.Warn().Int("line number", lineNumber).Msgf("%s guildname too short", guildsDatabasePath)
+			tlog.Warnf("[guilddb] line %d failed, guildname too short", lineNumber)
 			continue
 		}
 		p = strings.Index(name, "#")
@@ -130,7 +136,7 @@ func reload() error {
 		name = strings.TrimSpace(name)
 		_, ok := ng[id]
 		if ok {
-			log.Warn().Int("line number", lineNumber).Int("guild id", id).Msgf("%s duplicate entry", guildsDatabasePath)
+			tlog.Debugf("[guilddb] line %d skipped, guildID %d is a duplicate entry", lineNumber, id)
 		}
 		ng[id] = name
 	}

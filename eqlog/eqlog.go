@@ -10,9 +10,9 @@ import (
 	"sync"
 
 	"github.com/xackery/talkeq/request"
+	"github.com/xackery/talkeq/tlog"
 
 	"github.com/pkg/errors"
-	"github.com/xackery/log"
 
 	"github.com/hpcloud/tail"
 	"github.com/xackery/talkeq/config"
@@ -31,7 +31,6 @@ type EQLog struct {
 
 // New creates a new eqlog connect
 func New(ctx context.Context, config config.EQLog) (*EQLog, error) {
-	log := log.New()
 	ctx, cancel := context.WithCancel(ctx)
 	t := &EQLog{
 		ctx:    ctx,
@@ -41,7 +40,7 @@ func New(ctx context.Context, config config.EQLog) (*EQLog, error) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	log.Debug().Msg("verifying eqlog configuration")
+	tlog.Debugf("[eqlog] verifying configuration")
 
 	if !config.IsEnabled {
 		return t, nil
@@ -68,17 +67,16 @@ func (t *EQLog) IsConnected() bool {
 
 // Connect establishes a new connection with EQLog
 func (t *EQLog) Connect(ctx context.Context) error {
-	log := log.New()
 	//var err error
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
 	if !t.config.IsEnabled {
-		log.Debug().Msg("eqlog is disabled, skipping connect")
+		tlog.Debugf("[eqlog] is disabled, skipping connect")
 		return nil
 	}
 
-	log.Info().Msgf("connecting to eqlog %s...", t.config.Path)
+	tlog.Infof("[eqlog] connecting to %s...", t.config.Path)
 
 	t.Disconnect(ctx)
 
@@ -90,10 +88,9 @@ func (t *EQLog) Connect(ctx context.Context) error {
 }
 
 func (t *EQLog) loop(ctx context.Context) {
-	log := log.New()
 	fi, err := os.Stat(t.config.Path)
 	if err != nil {
-		log.Warn().Err(err).Msg("eqlog stat polling fail")
+		tlog.Warnf("[eqlog] stat polling failed: %s", err)
 		t.Disconnect(ctx)
 		return
 	}
@@ -109,7 +106,7 @@ func (t *EQLog) loop(ctx context.Context) {
 
 	tailer, err := tail.TailFile(t.config.Path, cfg)
 	if err != nil {
-		log.Warn().Err(err).Msg("eqlog tail attempt")
+		tlog.Warnf("[eqlog] tail attempt failed: %s", err)
 		t.Disconnect(ctx)
 		return
 	}
@@ -117,7 +114,7 @@ func (t *EQLog) loop(ctx context.Context) {
 	for line := range tailer.Lines {
 		select {
 		case <-t.ctx.Done():
-			log.Debug().Msg("eqlog exiting loop")
+			tlog.Debugf("[eqlog] exiting loop")
 			return
 		default:
 		}
@@ -128,7 +125,7 @@ func (t *EQLog) loop(ctx context.Context) {
 			}
 			pattern, err := regexp.Compile(route.Trigger.Regex)
 			if err != nil {
-				log.Debug().Err(err).Int("route", routeIndex).Msg("compile")
+				tlog.Debugf("[eqlog] route %d compile failed: %s", routeIndex, err)
 				continue
 			}
 			matches := pattern.FindAllStringSubmatch(line.Text, -1)
@@ -153,7 +150,7 @@ func (t *EQLog) loop(ctx context.Context) {
 				name,
 				message,
 			}); err != nil {
-				log.Warn().Err(err).Int("route", routeIndex).Msg("[discord] execute")
+				tlog.Warnf("[eqlog] execute route %d: %s", routeIndex, err)
 				continue
 			}
 			switch route.Target {
@@ -166,13 +163,13 @@ func (t *EQLog) loop(ctx context.Context) {
 				for _, s := range t.subscribers {
 					err = s(req)
 					if err != nil {
-						log.Warn().Err(err).Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[eqlog->discord]")
+						tlog.Warnf("[eqlog->discord subscriber %d] discordSend channelID %s message %s failed: %s", route.ChannelID, req.Message, err)
 						continue
 					}
-					log.Info().Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[eqlog->discord]")
+					tlog.Infof("[eqlog->discord subscriber %d] message: %s", route.ChannelID, req.Message)
 				}
 			default:
-				log.Warn().Msgf("unsupported target type: %s", route.Target)
+				tlog.Warnf("[eqlog] unsupported target type: %s", route.Target)
 				continue
 			}
 		}
@@ -182,13 +179,12 @@ func (t *EQLog) loop(ctx context.Context) {
 // Disconnect stops a previously started connection with EQLog.
 // If called while a connection is not active, returns nil
 func (t *EQLog) Disconnect(ctx context.Context) error {
-	log := log.New()
 	if !t.config.IsEnabled {
-		log.Debug().Msg("eqlog is disabled, skipping disconnect")
+		tlog.Debugf("[eqlog] is disabled, skipping disconnect")
 		return nil
 	}
 	if !t.isConnected {
-		log.Debug().Msg("eqlog is already disconnected, skipping disconnect")
+		tlog.Debugf("[eqlog] is already disconnected, skipping disconnect")
 		return nil
 	}
 	t.cancel()

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/xackery/log"
 	"github.com/xackery/talkeq/api"
 	"github.com/xackery/talkeq/config"
 	"github.com/xackery/talkeq/discord"
@@ -16,6 +15,7 @@ import (
 	"github.com/xackery/talkeq/request"
 	"github.com/xackery/talkeq/sqlreport"
 	"github.com/xackery/talkeq/telnet"
+	"github.com/xackery/talkeq/tlog"
 	"github.com/xackery/talkeq/userdb"
 )
 
@@ -40,14 +40,13 @@ func New(ctx context.Context) (*Client, error) {
 		ctx:    ctx,
 		cancel: cancel,
 	}
-	log := log.New()
-	log.Debug().Msgf("initializing talkeq client")
+	tlog.Debugf("[talkeq] initializing talkeq client")
 	c.config, err = config.NewConfig(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "config")
 	}
 
-	log.Debug().Msgf("initializing databases")
+	tlog.Debugf("[talkeq] initializing databases")
 	err = userdb.New(c.config)
 	if err != nil {
 		return nil, fmt.Errorf("userdb.New: %w", err)
@@ -58,7 +57,7 @@ func New(ctx context.Context) (*Client, error) {
 		return nil, fmt.Errorf("guilddb.New: %w", err)
 	}
 
-	log.Debug().Msgf("initializing 3rd party connections")
+	tlog.Debugf("[talkeq] initializing 3rd party connections")
 	c.discord, err = discord.New(ctx, c.config.Discord)
 	if err != nil {
 		return nil, errors.Wrap(err, "discord")
@@ -104,7 +103,7 @@ func New(ctx context.Context) (*Client, error) {
 		return nil, errors.Wrap(err, "peqeditorsql subscribe")
 	}
 
-	log.Debug().Msgf("initializing API")
+	tlog.Debugf("[talkeq] initializing API")
 	c.api, err = api.New(ctx, c.config.API, c.discord)
 	if err != nil {
 		return nil, errors.Wrap(err, "api subscribe")
@@ -120,15 +119,14 @@ func New(ctx context.Context) (*Client, error) {
 
 // Connect attempts to connect to all enabled endpoints
 func (c *Client) Connect(ctx context.Context) error {
-	log := log.New()
-	log.Debug().Msgf("talkeq connecting")
+	tlog.Debugf("[talkeq] connecting")
 
 	err := c.discord.Connect(ctx)
 	if err != nil {
 		if !c.config.IsKeepAliveEnabled {
 			return errors.Wrap(err, "discord connect")
 		}
-		log.Warn().Err(err).Msg("discord connect")
+		tlog.Warnf("[discord] connect failed: %s", err)
 	}
 
 	err = c.telnet.Connect(ctx)
@@ -136,7 +134,7 @@ func (c *Client) Connect(ctx context.Context) error {
 		if !c.config.IsKeepAliveEnabled {
 			return errors.Wrap(err, "telnet connect")
 		}
-		log.Warn().Err(err).Msg("telnet connect")
+		tlog.Warnf("[telnet] connect failed: %s", err)
 	}
 
 	err = c.sqlreport.Connect(ctx)
@@ -144,7 +142,7 @@ func (c *Client) Connect(ctx context.Context) error {
 		if !c.config.IsKeepAliveEnabled {
 			return errors.Wrap(err, "sqlreport connect")
 		}
-		log.Warn().Err(err).Msg("sqlreport connect")
+		tlog.Warnf("[sqlreport] connect failed: %s", err)
 	}
 
 	err = c.eqlog.Connect(ctx)
@@ -152,7 +150,7 @@ func (c *Client) Connect(ctx context.Context) error {
 		if !c.config.IsKeepAliveEnabled {
 			return errors.Wrap(err, "eqlog connect")
 		}
-		log.Warn().Err(err).Msg("eqlog connect")
+		tlog.Warnf("[eqlog] connect failed: %s", err)
 	}
 
 	err = c.peqeditorsql.Connect(ctx)
@@ -160,7 +158,7 @@ func (c *Client) Connect(ctx context.Context) error {
 		if !c.config.IsKeepAliveEnabled {
 			return errors.Wrap(err, "peqeditorsql connect")
 		}
-		log.Warn().Err(err).Msg("peqeditorsql connect")
+		tlog.Warnf("[peqeditorsql] connect failed: %s", err)
 	}
 
 	err = c.api.Connect(ctx)
@@ -168,7 +166,7 @@ func (c *Client) Connect(ctx context.Context) error {
 		if !c.config.IsKeepAliveEnabled {
 			return errors.Wrap(err, "api connect")
 		}
-		log.Warn().Err(err).Msg("api connect")
+		tlog.Warnf("[api] connect failed: %s", err)
 	}
 
 	go c.loop(ctx)
@@ -176,7 +174,6 @@ func (c *Client) Connect(ctx context.Context) error {
 }
 
 func (c *Client) loop(ctx context.Context) {
-	log := log.New()
 	var err error
 	go func() {
 		var err error
@@ -184,18 +181,18 @@ func (c *Client) loop(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
-				log.Debug().Msg("status loop exit, context done")
+				tlog.Debugf("[talkeq] status loop exit, context done")
 				return
 			default:
 			}
 			if c.config.Telnet.IsEnabled && c.config.Discord.IsEnabled {
 				online, err = c.telnet.Who(ctx)
 				if err != nil {
-					log.Warn().Err(err).Msg("telnet who")
+					tlog.Warnf("[telnet] who failed: %s", err)
 				}
 				err = c.discord.StatusUpdate(ctx, online, "")
 				if err != nil {
-					log.Warn().Err(err).Msg("discord status update")
+					tlog.Warnf("[discord] status update failed: %s", err)
 				}
 			}
 
@@ -203,36 +200,36 @@ func (c *Client) loop(ctx context.Context) {
 		}
 	}()
 	if !c.config.IsKeepAliveEnabled {
-		log.Debug().Msg("keep_alive disabled in config, exiting client loop")
+		tlog.Debugf("[talkeq] keep_alive disabled in config, exiting client loop")
 		return
 	}
 	for {
 		select {
 		case <-ctx.Done():
-			log.Debug().Msg("client loop exit, context done")
+			tlog.Debugf("[talkeq] client loop exit, context done")
 			return
 		default:
 		}
 		time.Sleep(c.config.KeepAliveRetryDuration())
 		if c.config.Discord.IsEnabled && !c.discord.IsConnected() {
-			log.Info().Msg("attempting to reconnect to discord")
+			tlog.Infof("[discord] attempting to reconnect")
 			err = c.discord.Connect(ctx)
 			if err != nil {
-				log.Warn().Err(err).Msg("discord connect")
+				tlog.Warnf("[discord] reconnect failed: %s", err)
 			}
 		}
 		if c.config.Telnet.IsEnabled && !c.telnet.IsConnected() {
-			log.Info().Msg("attempting to reconnect to telnet")
+			tlog.Infof("[telnet] attempting to reconnect")
 			err = c.telnet.Connect(ctx)
 			if err != nil {
-				log.Warn().Err(err).Msg("telnet connect")
+				tlog.Warnf("[telnet] reconnect failed: %s", err)
 			}
 		}
 		if c.config.SQLReport.IsEnabled && !c.sqlreport.IsConnected() {
-			log.Info().Msg("attempting to reconnect to sqlreport")
+			tlog.Infof("[sqlreport] attempting to reconnect")
 			err = c.sqlreport.Connect(ctx)
 			if err != nil {
-				log.Warn().Err(err).Msg("sqlreport connect")
+				tlog.Warnf("[sqlreport] connect failed: %s", err)
 			}
 		}
 	}

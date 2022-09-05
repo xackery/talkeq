@@ -8,23 +8,17 @@ import (
 	"runtime"
 
 	"github.com/pkg/errors"
-	"github.com/xackery/log"
 	"github.com/xackery/talkeq/client"
+	"github.com/xackery/talkeq/tlog"
 )
 
 // Version is the build version
 var Version string
 
 func main() {
-	log := log.New()
-	if Version == "" {
-		Version = "1.x.x EXPERIMENTAL"
-	}
-	log.Info().Msgf("starting talkeq %s", Version)
-
-	err := run()
+	w, err := os.Create("talkeq.log")
 	if err != nil {
-		log.Err(err).Msg("exited with error")
+		fmt.Println(err)
 		if runtime.GOOS == "windows" {
 			option := ""
 			fmt.Println("press a key then enter to exit.")
@@ -32,11 +26,31 @@ func main() {
 		}
 		os.Exit(1)
 	}
-	log.Info().Msg("exited safely")
+	defer w.Close()
+	tlog.Init(w, os.Stdout)
+
+	err = run(w)
+	if err != nil {
+		tlog.Errorf("run failed with error: %s", err)
+		if runtime.GOOS == "windows" {
+			option := ""
+			fmt.Println("press a key then enter to exit.")
+			fmt.Scan(&option)
+		}
+		tlog.Sync()
+		os.Exit(1)
+	}
+	tlog.Infof("exited safely")
+	tlog.Sync()
 	os.Exit(0)
 }
 
-func run() (err error) {
+func run(w *os.File) (err error) {
+
+	if Version == "" {
+		Version = "1.x.x EXPERIMENTAL"
+	}
+	tlog.Infof("starting talkeq %s", Version)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -60,7 +74,7 @@ func run() (err error) {
 		if err != nil {
 			return errors.Wrap(err, "signal disconnect")
 		}
-		fmt.Println("\nexiting, interrupt signal sent")
+		tlog.Infof("exiting, interrupt signal sent")
 	}
 	return
 }

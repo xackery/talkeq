@@ -4,13 +4,12 @@ import (
 	"fmt"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/xackery/log"
 	"github.com/xackery/talkeq/characterdb"
+	"github.com/xackery/talkeq/tlog"
 )
 
 func (t *Discord) whoRegister() error {
-	log := log.New()
-	log.Debug().Msgf("registering who command")
+	tlog.Debugf("[discord] registering who command")
 	_, err := t.conn.ApplicationCommandCreate(t.conn.State.User.ID, t.config.ServerID, &discordgo.ApplicationCommand{
 		Name:        "who",
 		Description: "get a list of players on server, can filter by zone or name with /who <filter>",

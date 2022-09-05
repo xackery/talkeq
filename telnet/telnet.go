@@ -4,15 +4,15 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
-
-	"github.com/xackery/log"
 
 	"github.com/pkg/errors"
 	"github.com/xackery/talkeq/characterdb"
 	"github.com/xackery/talkeq/config"
 	"github.com/xackery/talkeq/request"
+	"github.com/xackery/talkeq/tlog"
 	"github.com/ziutek/telnet"
 )
 
@@ -39,7 +39,6 @@ type Telnet struct {
 
 // New creates a new telnet connect
 func New(ctx context.Context, config config.Telnet) (*Telnet, error) {
-	log := log.New()
 	ctx, cancel := context.WithCancel(ctx)
 	t := &Telnet{
 		ctx:            ctx,
@@ -51,7 +50,7 @@ func New(ctx context.Context, config config.Telnet) (*Telnet, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	log.Debug().Msg("verifying telnet configuration")
+	tlog.Debugf("[telnet] verifying configuration")
 
 	if !config.IsEnabled {
 		return t, nil
@@ -82,16 +81,15 @@ func (t *Telnet) IsConnected() bool {
 
 // Connect establishes a new connection with Telnet
 func (t *Telnet) Connect(ctx context.Context) error {
-	log := log.New()
 	var err error
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	if !t.config.IsEnabled {
-		log.Debug().Msg("telnet is disabled, skipping connect")
+		tlog.Debugf("[telnet] is disabled, skipping connect")
 		return nil
 	}
-	log.Info().Msgf("connecting to telnet %s...", t.config.Host)
+	tlog.Infof("[telnet] connecting to %s...", t.config.Host)
 
 	isInitialState := t.isInitialState
 	t.isInitialState = false
@@ -173,7 +171,7 @@ func (t *Telnet) Connect(ctx context.Context) error {
 				"",
 				"",
 			}); err != nil {
-				log.Warn().Err(err).Int("route", routeIndex).Msg("[telnet] execute")
+				tlog.Warnf("[telnet] execute %d failed: %s", routeIndex, err)
 				continue
 			}
 
@@ -188,21 +186,20 @@ func (t *Telnet) Connect(ctx context.Context) error {
 			for _, s := range t.subscribers {
 				err = s(req)
 				if err != nil {
-					log.Warn().Err(err).Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[telnet->discord]")
+					tlog.Warnf("[telnet->discord subscriber %d] channelID %s message %s failed: %w", route.ChannelID, req.Message, err)
 					continue
 				}
-				log.Info().Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[telnet->discord]")
+				tlog.Infof("[telnet->discord] channelID %s message: %s", route.ChannelID, req.Message)
 			}
 		}
 
 	}
 
-	log.Info().Msg("telnet connected successfully, listening for messages")
+	tlog.Infof("[telnet] connected successfully, listening for messages")
 	return nil
 }
 
 func (t *Telnet) loop(ctx context.Context) {
-	log := log.New()
 	var data []byte
 	var err error
 	var msg string
@@ -210,14 +207,14 @@ func (t *Telnet) loop(ctx context.Context) {
 	for {
 		select {
 		case <-t.ctx.Done():
-			log.Debug().Msg("exiting telnet loop")
+			tlog.Debugf("[telnet] exiting telnet loop")
 			return
 		default:
 		}
 
 		data, err = t.conn.ReadUntil("\n")
 		if err != nil {
-			log.Warn().Err(err).Msgf("telnet read")
+			tlog.Warnf("[telnet] read failed: %s", err)
 			t.Disconnect(context.Background())
 			return
 		}
@@ -227,7 +224,7 @@ func (t *Telnet) loop(ctx context.Context) {
 			continue
 		}
 
-		log.Debug().Str("msg", msg).Msg("raw telnet echo")
+		tlog.Debugf("[telnet] raw echo: %s", strings.ReplaceAll(strings.ReplaceAll(msg, "\r", ""), "\n", ""))
 
 		if t.parsePlayerEntries(msg) {
 			continue
@@ -246,18 +243,17 @@ func (t *Telnet) loop(ctx context.Context) {
 // Disconnect stops a previously started connection with Telnet.
 // If called while a connection is not active, returns nil
 func (t *Telnet) Disconnect(ctx context.Context) error {
-	log := log.New()
 	if !t.config.IsEnabled {
-		log.Debug().Msg("telnet is disabled, skipping disconnect")
+		tlog.Debugf("[telnet] is disabled, skipping disconnect")
 		return nil
 	}
 	if !t.isConnected {
-		log.Debug().Msg("telnet is already disconnected, skipping disconnect")
+		tlog.Debugf("[telnet] already disconnected, skipping disconnect")
 		return nil
 	}
 	err := t.conn.Close()
 	if err != nil {
-		log.Warn().Err(err).Msg("telnet disconnect")
+		tlog.Warnf("[telnet] disconnect failed, ignoring: %s", err)
 	}
 	t.cancel()
 	t.conn = nil
@@ -272,7 +268,7 @@ func (t *Telnet) Disconnect(ctx context.Context) error {
 				"",
 				"",
 			}); err != nil {
-				log.Warn().Err(err).Int("route", routeIndex).Msg("[telnet] execute")
+				tlog.Warnf("[telnet] execute route %d failed, skipping: %s", routeIndex, err)
 				continue
 			}
 
@@ -284,13 +280,13 @@ func (t *Telnet) Disconnect(ctx context.Context) error {
 				ChannelID: route.ChannelID,
 				Message:   buf.String(),
 			}
-			for _, s := range t.subscribers {
+			for i, s := range t.subscribers {
 				err = s(req)
 				if err != nil {
-					log.Warn().Err(err).Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[telnet->discord]")
+					tlog.Warnf("[telnet->discord subscriber %d] channelID %s message %s failed: %s", i, route.ChannelID, req.Message)
 					continue
 				}
-				log.Info().Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[telnet->discord]")
+				tlog.Infof("[telnet->discord subscriber %d] channelID %s message: %s", i, route.ChannelID, req.Message)
 			}
 		}
 	}

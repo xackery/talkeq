@@ -5,16 +5,15 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/xackery/log"
+	"github.com/xackery/talkeq/tlog"
 )
 
 func (t *Discord) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	log := log.New()
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	cmd := i.ApplicationCommandData().Name
-	log.Debug().Msgf("got interaction: %s", cmd)
+	tlog.Debugf("[discord] command requested: %s", cmd)
 
 	var content string
 	var err error
@@ -26,7 +25,7 @@ func (t *Discord) handleCommand(s *discordgo.Session, i *discordgo.InteractionCr
 	}
 
 	if err != nil {
-		log.Error().Err(err).Msgf("failed to run command %s", cmd)
+		tlog.Errorf("[discord] run command failed: %s", err)
 	}
 
 	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -37,6 +36,6 @@ func (t *Discord) handleCommand(s *discordgo.Session, i *discordgo.InteractionCr
 		},
 	})
 	if err != nil {
-		log.Error().Err(err).Msgf("interactionRespond")
+		tlog.Errorf("[discord] interactionRespond failed: %s", err)
 	}
 }

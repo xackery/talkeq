@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/xackery/log"
 	"github.com/xackery/talkeq/guilddb"
 	"github.com/xackery/talkeq/request"
+	"github.com/xackery/talkeq/tlog"
 )
 
 var (
@@ -53,7 +53,6 @@ func (t *Telnet) convertLinks(message string) string {
 }
 
 func (t *Telnet) parseMessage(msg string) bool {
-	log := log.New()
 	msg = t.convertLinks(msg)
 	msg = strings.ReplaceAll(msg, "&PCT;", `%`)
 
@@ -64,7 +63,7 @@ func (t *Telnet) parseMessage(msg string) bool {
 		pattern, err := regexp.Compile(route.Trigger.Regex)
 
 		if err != nil {
-			log.Debug().Err(err).Int("route", routeIndex).Msg("compile")
+			tlog.Debugf("[telnet] compile route %d failed: %s", routeIndex, err)
 			continue
 		}
 		matches := pattern.FindAllStringSubmatch(msg, -1)
@@ -75,12 +74,12 @@ func (t *Telnet) parseMessage(msg string) bool {
 		name := ""
 		message := ""
 		if route.Trigger.MessageIndex > len(matches[0]) {
-			log.Warn().Int("route", routeIndex).Msgf("[telnet] trigger message_index %d greater than matches %d", route.Trigger.MessageIndex, len(matches[0]))
+			tlog.Warnf("[telnet] route %d trigger message_index %d greater than matches %d", routeIndex, route.Trigger.MessageIndex, len(matches[0]))
 			continue
 		}
 		message = matches[0][route.Trigger.MessageIndex]
 		if route.Trigger.NameIndex > len(matches[0]) {
-			log.Warn().Int("route", routeIndex).Msgf("[telnet] name_index %d greater than matches %d", route.Trigger.MessageIndex, len(matches[0]))
+			tlog.Warnf("[telnet route %d name_index %d greater than matches %d", routeIndex, route.Trigger.MessageIndex, len(matches[0]))
 			continue
 		}
 		name = matches[0][route.Trigger.NameIndex]
@@ -88,12 +87,12 @@ func (t *Telnet) parseMessage(msg string) bool {
 			route.GuildID = matches[0][route.Trigger.GuildIndex]
 			iGuildID, err := strconv.Atoi(route.GuildID)
 			if err != nil {
-				log.Warn().Int("route", routeIndex).Msgf("[telnet] guild_index %s is not an integer matches %d", route.GuildID, len(matches[0]))
+				tlog.Warnf("[telnet] route %d guild_index %s is not an integer matches %d", routeIndex, route.GuildID, len(matches[0]))
 				continue
 			}
 			tmpChannelID := guilddb.ChannelID(int(iGuildID))
 			if tmpChannelID == "" {
-				log.Debug().Int("route", routeIndex).Msgf("[telnet] guild_index %d is not in talkeq_guilds, falling back to discord channel %s", iGuildID, route.ChannelID)
+				tlog.Debugf("[telnet] route %d guild_index %d is not in talkeq_guilds, falling back to discord channel %s", routeIndex, iGuildID, route.ChannelID)
 			} else {
 				route.ChannelID = tmpChannelID
 			}
@@ -107,7 +106,7 @@ func (t *Telnet) parseMessage(msg string) bool {
 			name,
 			message,
 		}); err != nil {
-			log.Warn().Err(err).Int("route", routeIndex).Msg("[discord] execute")
+			tlog.Warnf("[telnet] route %d execute: %s", routeIndex, err)
 			continue
 		}
 		switch route.Target {
@@ -117,16 +116,16 @@ func (t *Telnet) parseMessage(msg string) bool {
 				ChannelID: route.ChannelID,
 				Message:   buf.String(),
 			}
-			for _, s := range t.subscribers {
+			for i, s := range t.subscribers {
 				err = s(req)
 				if err != nil {
-					log.Warn().Err(err).Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[telnet->discord]")
+					tlog.Warnf("[telnet->discord subscriber %d] channelID %s message %s failed: %s", i, route.ChannelID, req.Message, err)
 					continue
 				}
-				log.Info().Str("channelID", route.ChannelID).Str("message", req.Message).Msg("[telnet->discord]")
+				tlog.Infof("[telnet->discord subscribe %d] channelID %s message: %s", i, route.ChannelID, req.Message)
 			}
 		default:
-			log.Warn().Msgf("unsupported target type: %s", route.Target)
+			tlog.Warnf("[telnet] unsupported target type: %s", route.Target)
 			continue
 		}
 	}

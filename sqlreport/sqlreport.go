@@ -7,8 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xackery/log"
-
 	"database/sql"
 
 	//used for database connection
@@ -16,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/xackery/talkeq/config"
 	"github.com/xackery/talkeq/discord"
+	"github.com/xackery/talkeq/tlog"
 )
 
 // SQLReport represents a sqlreport connection
@@ -34,7 +33,6 @@ type SQLReport struct {
 
 // New creates a new sqlreport connect
 func New(ctx context.Context, config config.SQLReport, discClient *discord.Discord) (*SQLReport, error) {
-	log := log.New()
 	ctx, cancel := context.WithCancel(ctx)
 	t := &SQLReport{
 		ctx:            ctx,
@@ -46,7 +44,7 @@ func New(ctx context.Context, config config.SQLReport, discClient *discord.Disco
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	log.Debug().Msg("verifying sqlreport configuration")
+	tlog.Debugf("[sqlreport] verifying configuration")
 
 	if !config.IsEnabled {
 		return t, nil
@@ -69,16 +67,15 @@ func (t *SQLReport) IsConnected() bool {
 
 // Connect establishes a new connection with SQLReport
 func (t *SQLReport) Connect(ctx context.Context) error {
-	log := log.New()
 	var err error
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
 	if !t.config.IsEnabled {
-		log.Debug().Msg("sqlreport is disabled, skipping connect")
+		tlog.Debugf("[sqlreport] is disabled, skipping connect")
 		return nil
 	}
-	log.Info().Msgf("connecting to sqlreport %s...", t.config.Host)
+	tlog.Infof("[sqlreport] connecting to %s...", t.config.Host)
 
 	if t.conn != nil {
 		t.conn.Close()
@@ -97,20 +94,19 @@ func (t *SQLReport) Connect(ctx context.Context) error {
 }
 
 func (t *SQLReport) loop(ctx context.Context) {
-	log := log.New()
 	var value string
 	nextReport := 1 * time.Second
 
 	for {
-		log.Debug().Msgf("sqlreport sleeping for %0.1fs", nextReport.Seconds())
+		tlog.Debugf("[sqlreport] sleeping for %0.1fs", nextReport.Seconds())
 		select {
 		case <-t.ctx.Done():
-			log.Debug().Msg("sqlreport exiting loop")
+			tlog.Debugf("[sqlreport] exiting loop")
 			return
 		case <-time.After(nextReport):
 		}
 		nextReport = 30 * time.Second
-		log.Debug().Msg("sqlreport executing")
+		tlog.Debugf("[sqlreport] executing")
 		t.mutex.Lock()
 		for _, e := range t.config.Entries {
 			if e.NextReport.After(time.Now()) {
@@ -119,7 +115,7 @@ func (t *SQLReport) loop(ctx context.Context) {
 
 			r := t.conn.QueryRow(e.Query)
 			if err := r.Scan(&value); err != nil {
-				log.Warn().Err(err).Msgf("sqlreport query %s", e.Query)
+				tlog.Warnf("[sqlreport] query %s failed: %s", e.Query, err)
 				e.NextReport = time.Now().Add(e.RefreshDuration)
 				if nextReport > e.RefreshDuration {
 					nextReport = e.RefreshDuration
@@ -133,7 +129,7 @@ func (t *SQLReport) loop(ctx context.Context) {
 			}{
 				value,
 			}); err != nil {
-				log.Warn().Err(err).Msgf("sqlreport execute %s", e.Query)
+				tlog.Warnf("[sqlreport] execute %s failed: %s", e.Query, err)
 				e.NextReport = time.Now().Add(e.RefreshDuration)
 				if nextReport > e.RefreshDuration {
 					nextReport = e.RefreshDuration
@@ -148,7 +144,7 @@ func (t *SQLReport) loop(ctx context.Context) {
 		}
 		for _, e := range t.config.Entries {
 			if err := t.discClient.SetChannelName(e.ChannelID, e.Text); err != nil {
-				log.Warn().Err(err).Msgf("sqlreport setchannelname %s", e.Query)
+				tlog.Warnf("[sqlreport] setchannelname %s failed: %s", e.Query, err)
 				e.NextReport = time.Now().Add(e.RefreshDuration)
 				if nextReport > e.RefreshDuration {
 					nextReport = e.RefreshDuration
@@ -163,13 +159,12 @@ func (t *SQLReport) loop(ctx context.Context) {
 // Disconnect stops a previously started connection with SQLReport.
 // If called while a connection is not active, returns nil
 func (t *SQLReport) Disconnect(ctx context.Context) error {
-	log := log.New()
 	if !t.config.IsEnabled {
-		log.Debug().Msg("sqlreport is disabled, skipping disconnect")
+		tlog.Debugf("[sqlreport] is disabled, skipping disconnect")
 		return nil
 	}
 	if !t.isConnected {
-		log.Debug().Msg("sqlreport is already disconnected, skipping disconnect")
+		tlog.Debugf("[sqlreport] is already disconnected, skipping disconnect")
 		return nil
 	}
 	t.conn.Close()

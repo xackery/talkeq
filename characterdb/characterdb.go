@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/xackery/log"
+	"github.com/xackery/talkeq/tlog"
 )
 
 var (
@@ -37,9 +37,8 @@ func CharactersOnline(filter string) string {
 	mu.RLock()
 	defer mu.RUnlock()
 	content := ""
-	log := log.New()
 
-	log.Debug().Msgf("iterating players (%d total) with filter '%s'", len(characters), filter)
+	tlog.Debugf("[characterdb] iterating players (%d total) with filter '%s'", len(characters), filter)
 	totalCount := 0
 	hiddenCount := 0
 	isTruncated := false
@@ -101,10 +100,10 @@ func CharactersOnline(filter string) string {
 func SetCharacters(req map[string]*Character) error {
 	mu.Lock()
 	defer mu.Unlock()
-	log := log.New()
-	log.Debug().Msgf("setting characters to %d", len(characters))
+
 	characters = req
 	onlineCount = len(characters)
+	tlog.Debugf("[characterdb] onlineCount is %d", onlineCount)
 	return nil
 }
 

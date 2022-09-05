@@ -4,12 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/xackery/log"
 	"github.com/xackery/talkeq/registerdb"
+	"github.com/xackery/talkeq/tlog"
 )
 
 func (t *API) relays(w http.ResponseWriter, r *http.Request) {
-	log := log.New()
 	w.Header().Set("Content-Type", "application/json")
 	type Relay struct {
 		Action string `json:"action"`
@@ -26,10 +25,10 @@ func (t *API) relays(w http.ResponseWriter, r *http.Request) {
 
 	entries, err := registerdb.QueuedEntries()
 	if err != nil {
-		log.Warn().Err(err).Msg("queuedentries")
+		tlog.Warnf("[api] queuedentries failed: %s", err)
 		err := json.NewEncoder(w).Encode(resp)
 		if err != nil {
-			log.Warn().Err(err).Msg("encode response")
+			tlog.Warnf("[api] encode response failed: %s", err)
 		}
 		return
 	}
@@ -44,9 +43,9 @@ func (t *API) relays(w http.ResponseWriter, r *http.Request) {
 		resp.Relays = append(resp.Relays, relay)
 	}
 
-	log.Debug().Int("relays", len(resp.Relays)).Msg("[api->questapi]")
+	tlog.Debugf("[api->questapi] relays count: %d", len(resp.Relays))
 	err = json.NewEncoder(w).Encode(resp)
 	if err != nil {
-		log.Warn().Err(err).Msg("encode response")
+		tlog.Warnf("[api] encode response failed: %s", err)
 	}
 }

@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/xackery/log"
 	"github.com/xackery/talkeq/characterdb"
+	"github.com/xackery/talkeq/tlog"
 )
 
 var (
@@ -19,11 +19,10 @@ var (
 
 func (t *Telnet) parsePlayerEntries(msg string) bool {
 	var err error
-	log := log.New()
 	if t.isPlayerDump && time.Now().After(t.lastPlayerDump) {
 		err = characterdb.SetCharacters(t.characters)
 		if err != nil {
-			log.Error().Err(err).Msgf("setcharacters")
+			tlog.Warnf("[telnet] setcharacters failed: %s", err)
 			return true
 		}
 		t.isPlayerDump = false
@@ -42,7 +41,7 @@ func (t *Telnet) parsePlayerEntries(msg string) bool {
 	if t.isPlayerDump && strings.Contains(msg, "players online") {
 		err = characterdb.SetCharacters(t.characters)
 		if err != nil {
-			log.Error().Err(err).Msgf("setcharacters")
+			tlog.Warnf("[telnet] setcharacters playersOnline failed: %s", err)
 			return true
 		}
 		t.isPlayerDump = false
@@ -61,25 +60,25 @@ func (t *Telnet) parsePlayerEntries(msg string) bool {
 
 		level, err := strconv.Atoi(submatches[3])
 		if err != nil {
-			log.Debug().Err(err).Msgf("[telnet] failed to parse %s level (%s)", msg, submatches[2])
+			tlog.Debugf("[telnet] failed to parse %s level (%s): %s", msg, submatches[3], err)
 			level = 0
 		}
 
 		acctID, err := strconv.Atoi(submatches[8])
 		if err != nil {
-			log.Debug().Err(err).Msgf("[telnet] failed to parse %s acctID (%s)", msg, submatches[7])
+			tlog.Debugf("[telnet] failed to parse %s acctID (%s): %s", msg, submatches[8], err)
 			acctID = 0
 		}
 
 		lsID, err := strconv.Atoi(submatches[10])
 		if err != nil {
-			log.Debug().Err(err).Msgf("[telnet] failed to parse %s lsID (%s)", msg, submatches[9])
+			tlog.Debugf("[telnet] failed to parse %s lsID (%s): %s", msg, submatches[10], err)
 			lsID = 0
 		}
 
 		status, err := strconv.Atoi(submatches[11])
 		if err != nil {
-			log.Debug().Err(err).Msgf("[telnet] failed to parse %s status (%s)", msg, submatches[10])
+			tlog.Debugf("[telnet] failed to parse %s status (%s): %s", msg, submatches[11], err)
 			status = 0
 		}
 		t.characters[submatches[5]] = &characterdb.Character{
@@ -102,7 +101,6 @@ func (t *Telnet) parsePlayerEntries(msg string) bool {
 }
 
 func (t *Telnet) parsePlayersOnline(msg string) bool {
-	log := log.New()
 
 	matches := playersOnlineRegex.FindAllStringSubmatch(msg, -1)
 	if len(matches) == 0 { //pattern has no match, unsupported emote
@@ -110,13 +108,13 @@ func (t *Telnet) parsePlayersOnline(msg string) bool {
 	}
 
 	if len(matches[0]) < 2 {
-		log.Debug().Str("msg", msg).Msg("ignored, no submatch for players online")
+		tlog.Debugf("[telnet] ignored '%s' parse, no submatch for players online", msg)
 		return false
 	}
 
 	online, err := strconv.Atoi(matches[0][1])
 	if err != nil {
-		log.Debug().Str("msg", msg).Msg("online count ignored, parse failed")
+		tlog.Debugf("[telnet] ignored '%s' parse, online count not valid", msg)
 		return false
 	}
 

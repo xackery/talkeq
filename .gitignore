@@ -41,3 +41,4 @@ _testmain.go
 *.toml
 
 talkeq_guilds.txt
+talkeq.log

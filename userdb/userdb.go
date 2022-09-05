@@ -7,8 +7,8 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/jbsmith7741/toml"
-	"github.com/xackery/log"
 	"github.com/xackery/talkeq/config"
+	"github.com/xackery/talkeq/tlog"
 )
 
 var (
@@ -31,11 +31,10 @@ func New(config *config.Config) error {
 	}
 	usersDatabasePath = config.UsersDatabasePath
 
-	log := log.New()
-	log.Debug().Msgf("initializing user db")
+	tlog.Debugf("[userdb] initializing user db")
 	_, err := os.Stat(usersDatabasePath)
 	if os.IsNotExist(err) {
-		log.Debug().Msgf("user db not found, creating a new one")
+		tlog.Debugf("[userdb] not found, creating a new one")
 		f, err := os.Create(usersDatabasePath)
 		if err != nil {
 			return fmt.Errorf("create user database: %w", err)
@@ -77,7 +76,6 @@ func loop(watcher *fsnotify.Watcher) {
 	mu.Lock()
 	isStarted = true
 	mu.Unlock()
-	log := log.New()
 
 	defer watcher.Close()
 	var err error
@@ -86,22 +84,22 @@ func loop(watcher *fsnotify.Watcher) {
 		select {
 		case event, ok := <-watcher.Events:
 			if !ok {
-				log.Warn().Msg("user database failed to read file")
+				tlog.Warn("[userdb] failed to read file")
 				return
 			}
 			if event.Op&fsnotify.Write != fsnotify.Write {
 				continue
 			}
-			log.Debug().Msg("users database modified, reloading")
+			tlog.Debugf("[userdb] modified, reloading")
 			err = reload()
 			if err != nil {
-				log.Warn().Err(err).Msg("failed to reload users database")
+				tlog.Warnf("[userdb] reload failed, ignoring: %s", err)
 			}
 		case err, ok := <-watcher.Errors:
 			if !ok {
 				return
 			}
-			log.Warn().Err(err).Msg("user database failed to read file")
+			tlog.Warnf("[userdb] read failed, ignoring: %s", err)
 		}
 	}
 }
@@ -128,7 +126,6 @@ func reload() error {
 // Set updates or adds an entry for a specified user id
 func Set(discordID string, characterName string) {
 	mu.Lock()
-	log := log.New()
 
 	ue, ok := users[discordID]
 	if ok {
@@ -144,7 +141,7 @@ func Set(discordID string, characterName string) {
 	users[discordID] = ue
 	err := save()
 	if err != nil {
-		log.Warn().Err(err).Msg("set user entry")
+		tlog.Warnf("[userdb] save failed: %s", err)
 	}
 }
 
