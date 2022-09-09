@@ -24,13 +24,23 @@ func (t *Discord) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate
 	}
 
 	ign := ""
-	msg := m.ContentWithMentionsReplaced()
+
+	originalMessage, err := m.ContentWithMoreMentionsReplaced(s)
+	if err != nil {
+		tlog.Debugf("[discord] message grab failed: %s", err)
+		return
+	}
+	msg := originalMessage
+	if len(msg) < 1 {
+		tlog.Debugf("[discord] message too small, ignoring, original message: %s", originalMessage)
+		return
+	}
 	if len(msg) > 4000 {
 		msg = msg[0:4000]
 	}
 	msg = sanitize(msg)
 	if len(msg) < 1 {
-		tlog.Debugf("[discord] message after sanitize too small, ignoring, original message: %s", m.ContentWithMentionsReplaced())
+		tlog.Debugf("[discord] message after sanitize too small, ignoring, original message: %s", originalMessage)
 		return
 	}
 
