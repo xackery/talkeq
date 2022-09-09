@@ -43,6 +43,7 @@ Telnet|ooc
 * Click the Reset Token button, Yes, do it!
 * Press the copy button in the Token section
 * Uncheck the Public Bot option
+* Scroll to the bottom of the bot section, and toggle the Message Content Intent option ([Due to this fix](https://discord.com/developers/docs/change-log#sep-1-2022))
 * Replace on this link's {CLIENT_ID} field with the client ID you obtained earlier. https://discordapp.com/oauth2/authorize?&client_id={CLIENT_ID}&scope=bot&permissions=268504064 
 * Open the link and authorize your bot to access your server.
 * Ensure the bot now appears offline on your server's general channel
