@@ -17,11 +17,11 @@ import (
 type Config struct {
 	Debug                         bool      `toml:"debug" desc:"TalkEQ Configuration\n\n# Debug messages are displayed. This will cause console to be more verbose, but also more informative"`
 	IsKeepAliveEnabled            bool      `toml:"keep_alive" desc:"Keep all connections alive?\n# If false, endpoint disconnects will not self repair\n# Not recommended to turn off except in advanced cases"`
-	IsFallbackGuildChannelEnabled bool      `toml:"is_fallback_guild_channel_enabled" desc:"If a guild chat occurs and it isn't mapped inside talkeq_guilds, chat is echod to the globalguild channel route channelid"`
 	KeepAliveRetry                string    `toml:"keep_alive_retry" desc:"How long before retrying to connect (requires keep_alive = true)\n# default: 10s"`
-	UsersDatabasePath             string    `toml:"users_database" desc:"Users by ID are mapped to their display names via the raw text file called users database\n# If users database file does not exist, a new one is created\n# This file is actively monitored. if you edit it while talkeq is running, it will reload the changes instantly\n# This file overrides the IGN: playerName role tags in discord\n# If a user is found on this list, it will fall back to check for IGN tags"`
+	IsFallbackGuildChannelEnabled bool      `toml:"is_fallback_guild_channel_enabled" desc:"If a guild chat occurs and it isn't mapped inside talkeq_guilds, chat is echod to the globalguild channel route channelid"`
+	UsersDatabasePath             string    `toml:"users_database" desc:"Users by ID are mapped to their display names via the raw text file called users database\n# If users database file does not exist, a new one is created\n# This file is actively monitored. if you edit it while talkeq is running, it will reload the changes instantly\n# This file overrides the IGN: playerName role tags in discord\n# If a user is not found on this list, it will fall back to check for IGN tags"`
 	GuildsDatabasePath            string    `toml:"guilds_database" desc:"Guilds by ID are mapped to their database ID via the raw text file called guilds database\n# If guilds database file does not exist, a new one is created\n# This file is actively monitored. if you edit it while talkeq is running, it will reload the changes instantly"`
-	API                           API       `toml:"api" desc:"API is a service to allow external tools to talk to TalkEQ via HTTP requests.\n# It uses Restful style (JSON) with a /api suffix for all endpoints"`
+	API                           API       `toml:"api" desc:"NOT YET SUPPORTED, can be ignored for now (it's fine to keep enabled): API is a service to allow external tools to talk to TalkEQ via HTTP requests.\n# It uses Restful style (JSON) with a /api suffix for all endpoints"`
 	Discord                       Discord   `toml:"discord" desc:"Discord is a chat service that you can listen and relay EQ chat with"`
 	Telnet                        Telnet    `toml:"telnet" desc:"Telnet is a service eqemu/server can use, that relays messages over"`
 	EQLog                         EQLog     `toml:"eqlog" desc:"EQ Log is used to parse everquest client logs. Primarily for live EQ, non server owners"`
@@ -195,7 +195,6 @@ func getDefaultConfig() Config {
 	cfg.Telnet.Host = "127.0.0.1:9000"
 	cfg.Telnet.ItemURL = "http://everquest.allakhazam.com/db/item.html?item="
 	cfg.Telnet.IsServerAnnounceEnabled = true
-	cfg.Telnet.MessageDeadline = "10s"
 	cfg.Telnet.IsOOCAuctionEnabled = true
 	cfg.Telnet.Routes = append(cfg.Telnet.Routes, Route{
 		IsEnabled: true,

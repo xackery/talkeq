@@ -62,15 +62,15 @@ func New(ctx context.Context, config config.Discord) (*Discord, error) {
 	}
 
 	if config.ClientID == "" {
-		return nil, fmt.Errorf("client_id must be set")
+		return nil, fmt.Errorf("client_id must be set. Visit https://github.com/xackery/talkeq to learn more")
 	}
 
 	if config.Token == "" {
-		return nil, fmt.Errorf("bot_token must be set")
+		return nil, fmt.Errorf("bot_token must be set. Visit https://github.com/xackery/talkeq to learn more")
 	}
 
 	if config.ServerID == "" {
-		return nil, fmt.Errorf("server_id must be set")
+		return nil, fmt.Errorf("server_id must be set. On discord, right click your server's icon on very left, and Copy ID, and place it in talkeq.conf in the server_id section")
 	}
 
 	return t, nil
@@ -118,7 +118,7 @@ func (t *Discord) Connect(ctx context.Context) error {
 	for _, route := range t.config.Routes {
 		st, err = t.conn.Channel(route.Trigger.ChannelID)
 		if err != nil {
-			tlog.Errorf("[discord] your bot appears to not be allowed to listen to route %s's channel %s. visit https://discordapp.com/oauth2/authorize?&client_id=%s&scope=bot&permissions=268504080 and authorize", route.Trigger.ChannelID, t.config.ClientID)
+			tlog.Errorf("[discord] your bot appears to not be allowed to listen to route %s's channel %s. visit https://discordapp.com/oauth2/authorize?&client_id=%s&scope=bot&permissions=268504080 and authorize", route.Target, route.Trigger.ChannelID, t.config.ClientID)
 			if runtime.GOOS == "windows" {
 				option := ""
 				fmt.Println("press a key then enter to exit.")

@@ -19,13 +19,12 @@ type SQLReport struct {
 
 // SQLReportRoute is how to route SQL report messages
 type SQLReportRoute struct {
-	IsEnabled              bool             `toml:"enabled" desc:"Is route enabled?"`
-	Trigger                SQLReportTrigger `toml:"trigger" desc:"condition to trigger route"`
-	Target                 string           `toml:"target" desc:"target service, e.g. telnet"`
-	ChannelID              string           `toml:"channel_id" desc:"Destination channel ID"`
-	GuildID                string           `toml:"guild_id" desc:"Optional, Destination guild ID"`
-	MessagePattern         string           `toml:"message_pattern" desc:"Destination message in. E.g. {{.Name}} says {{.ChannelName}}, '{{.Message}}"`
-	messagePatternTemplate *template.Template
+	IsEnabled      bool             `toml:"enabled" desc:"Is route enabled?"`
+	Trigger        SQLReportTrigger `toml:"trigger" desc:"condition to trigger route"`
+	Target         string           `toml:"target" desc:"target service, e.g. telnet"`
+	ChannelID      string           `toml:"channel_id" desc:"Destination channel ID"`
+	GuildID        string           `toml:"guild_id,omitempty" desc:"Optional, Destination guild ID"`
+	MessagePattern string           `toml:"message_pattern" desc:"Destination message in. E.g. {{.Name}} says {{.ChannelName}}, '{{.Message}}"`
 }
 
 // SQLReportTrigger is a regex pattern matching

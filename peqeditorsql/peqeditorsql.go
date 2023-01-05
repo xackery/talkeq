@@ -6,12 +6,10 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"strings"
 	"sync"
 	"text/template"
 	"time"
 
-	"github.com/xackery/talkeq/channel"
 	"github.com/xackery/talkeq/request"
 	"github.com/xackery/talkeq/tlog"
 
@@ -28,13 +26,12 @@ const (
 
 // PEQEditorSQL represents a peqeditorsql connection
 type PEQEditorSQL struct {
-	ctx               context.Context
-	cancel            context.CancelFunc
-	isConnected       bool
-	mutex             sync.RWMutex
-	config            config.PEQEditorSQL
-	subscribers       []func(interface{}) error
-	isNewPEQEditorSQL bool
+	ctx         context.Context
+	cancel      context.CancelFunc
+	isConnected bool
+	mutex       sync.RWMutex
+	config      config.PEQEditorSQL
+	subscribers []func(interface{}) error
 }
 
 // New creates a new peqeditorsql connect
@@ -199,10 +196,6 @@ func (t *PEQEditorSQL) loop(ctx context.Context) {
 	}
 }
 
-func (t *PEQEditorSQL) parse(msg string) (author string, channelID int, message string, err error) {
-	return "", channel.ToInt(channel.PEQEditorSQLLog), msg, nil
-}
-
 // Disconnect stops a previously started connection with PEQEditorSQL.
 // If called while a connection is not active, returns nil
 func (t *PEQEditorSQL) Disconnect(ctx context.Context) error {
@@ -230,18 +223,4 @@ func (t *PEQEditorSQL) Subscribe(ctx context.Context, onMessage func(interface{}
 	defer t.mutex.Unlock()
 	t.subscribers = append(t.subscribers, onMessage)
 	return nil
-}
-
-func sanitize(data string) string {
-	data = strings.Replace(data, `%`, "&PCT;", -1)
-	re := regexp.MustCompile("[^\x00-\x7F]+")
-	data = re.ReplaceAllString(data, "")
-	return data
-}
-
-// alphanumeric sanitizes incoming data to only be valid
-func alphanumeric(data string) string {
-	re := regexp.MustCompile("[^a-zA-Z0-9_]+")
-	data = re.ReplaceAllString(data, "")
-	return data
 }

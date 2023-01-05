@@ -63,11 +63,6 @@ func New(ctx context.Context, config config.Telnet) (*Telnet, error) {
 		config.Host = "127.0.0.1:23"
 	}
 
-	if config.MessageDeadlineDuration().Seconds() < 1 {
-		config.MessageDeadline = "10s"
-		//return nil, fmt.Errorf("telnet.message_deadline must be greater than 1s")
-	}
-
 	return t, nil
 }
 

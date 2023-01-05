@@ -11,7 +11,7 @@ type Route struct {
 	Trigger                Trigger `toml:"trigger" desc:"condition to trigger route"`
 	Target                 string  `toml:"target" desc:"target service, e.g. telnet"`
 	ChannelID              string  `toml:"channel_id" desc:"Destination channel ID"`
-	GuildID                string  `toml:"guild_id" desc:"Optional, Destination guild ID"`
+	GuildID                string  `toml:"guild_id,omitempty" desc:"Optional, Destination guild ID"`
 	MessagePattern         string  `toml:"message_pattern" desc:"Destination message in. E.g. {{.Name}} says {{.ChannelName}}, '{{.Message}}"`
 	messagePatternTemplate *template.Template
 }
