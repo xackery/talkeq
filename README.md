@@ -6,33 +6,9 @@
 
 TalkEQ bridges links between everquest and other services. Extends [DiscordEQ](https://github.com/xackery/discordeq).
 
-### Source Services
+## Setup
 
-Name|Channels
----|---
-Telnet|ooc, broadcast
-EQLog|ooc, guild, auction, general, shout
-PEQEditorSQLLog|peqeditorsqllog
-
-### Broadcast Services
-
-Name|Channels
----|---
-Discord|ooc, auction, general, peqeditorsqllog
-Telnet|ooc
-
-
-### Service Descriptions
-
-* Telnet - EQEMU uses this as a way to communicate with the server
-* EQLog - Everquest's client generates a log when you type /log, and it logs data the client sees
-* PEQEditorSQLLog - EQEMU's PEQ Editor is configured to log sql events, you can relay this info to discord
-* Discord - Chat service that lets you relay information to it via bots
-
-## Discord Setup
-
-### Create a bot
-
+* Go to [releases](https://github.com/xackery/talkeq/releases) and download the latest exe or binary for your operating systsem.
 * Go to https://discordapp.com/developers/ and sign in
 * Click New Application the top right area
 * Write anything you wish for the app name, click Create App
@@ -150,3 +126,28 @@ esac
 
 exit 0
 ```
+
+
+### Source Services
+
+Name|Channels
+---|---
+Telnet|ooc, broadcast
+EQLog|ooc, guild, auction, general, shout
+PEQEditorSQLLog|peqeditorsqllog
+
+### Broadcast Services
+
+Name|Channels
+---|---
+Discord|ooc, auction, general, peqeditorsqllog
+Telnet|ooc
+
+
+### Service Descriptions
+
+* Telnet - EQEMU uses this as a way to communicate with the server
+* EQLog - Everquest's client generates a log when you type /log, and it logs data the client sees
+* PEQEditorSQLLog - EQEMU's PEQ Editor is configured to log sql events, you can relay this info to discord
+* Discord - Chat service that lets you relay information to it via bots
+
