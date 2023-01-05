@@ -92,6 +92,9 @@ func (t *Telnet) parseMessage(msg string) bool {
 			}
 			tmpChannelID := guilddb.ChannelID(int(iGuildID))
 			if tmpChannelID == "" {
+				if route.ChannelID == "INSERTGLOBALGUILDCHANNELHERE" {
+					continue //in cases a guild route happened and default settings, no need to attempt the route
+				}
 				tlog.Debugf("[telnet] route %d guild_index %d is not in talkeq_guilds, falling back to discord channel %s", routeIndex, iGuildID, route.ChannelID)
 			} else {
 				route.ChannelID = tmpChannelID
