@@ -67,7 +67,7 @@ jobs:
         prerelease: false
         title: "${{ env.VERSION }}.${{ github.run_number }}"
         files: |
-          bin/talkeq-${{ env.VERSION }}-linux-x64.exe
+          bin/talkeq-${{ env.VERSION }}-linux-x64
           bin/talkeq-${{ env.VERSION }}-win-x64.exe
           bin/talkeq-${{ env.VERSION }}-win-x86.exe
-          bin/talkeq-${{ env.VERSION}}-osx-x64.exe
+          bin/talkeq-${{ env.VERSION}}-darwin-x64

@@ -27,16 +27,16 @@ run: sanitize
 test:
 	@go test -cover ./...
 .PHONY: build-all
-build-all: sanitize build-prepare build-linux build-osx build-windows	
+build-all: sanitize build-prepare build-linux build-darwin build-windows	
 .PHONY: build-prepare
 build-prepare:
 	@echo "Preparing talkeq ${VERSION}"
 	@rm -rf bin/*
 	@-mkdir -p bin/
 .PHONY: build-darwin
-build-osx:
+build-darwin:
 	@echo "build-darwin: building ${VERSION}"
-	@GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -buildmode=pie -ldflags="-X main.Version=${VERSION} -s -w" -o bin/${NAME}-${VERSION}-osx-x64 main.go
+	@GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -buildmode=pie -ldflags="-X main.Version=${VERSION} -s -w" -o bin/${NAME}-${VERSION}-darwin-x64 main.go
 .PHONY: build-linux
 build-linux:
 	@echo "build-linux: building ${VERSION}"
