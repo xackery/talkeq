@@ -4,6 +4,8 @@
 
 [![Total alerts](https://img.shields.io/lgtm/alerts/g/xackery/talkeq.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/xackery/talkeq/alerts/)
 
+[![Platform Tests & Build](https://github.com/xackery/talkeq/actions/workflows/build_workflow.yml/badge.svg?branch=master)](https://github.com/xackery/talkeq/actions/workflows/build_workflow.yml)
+
 TalkEQ bridges links between everquest and other services. Extends [DiscordEQ](https://github.com/xackery/discordeq).
 
 ## Setup
