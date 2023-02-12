@@ -30,9 +30,10 @@ type Character struct {
 	Status   int
 }
 
+// Characters is an list of character
 type Characters []*Character
 
-// Characters returns a string of characters
+// CharactersOnline returns a string of online characters
 func CharactersOnline(filter string) string {
 	mu.RLock()
 	defer mu.RUnlock()
@@ -97,6 +98,7 @@ func CharactersOnline(filter string) string {
 	return content
 }
 
+// SetCharacters sets the character db to provided argument
 func SetCharacters(req map[string]*Character) error {
 	mu.Lock()
 	defer mu.Unlock()
@@ -107,12 +109,14 @@ func SetCharacters(req map[string]*Character) error {
 	return nil
 }
 
+// CharactersOnlineCount returns how many characters are reported online
 func CharactersOnlineCount() int {
 	mu.RLock()
 	defer mu.RUnlock()
 	return onlineCount
 }
 
+// SetCharactersOnlineCount sets how many characters are online
 func SetCharactersOnlineCount(value int) {
 	mu.Lock()
 	defer mu.Unlock()

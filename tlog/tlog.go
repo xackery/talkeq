@@ -12,10 +12,13 @@ import (
 
 var (
 	isInitialied bool
-	Sugar        *zap.SugaredLogger
-	SugarFile    *zap.SugaredLogger
+	// Sugar represents a zap logger
+	Sugar *zap.SugaredLogger
+	// SugarFile represents a zap logger file
+	SugarFile *zap.SugaredLogger
 )
 
+// Init creates and initializes the logging
 func Init(fileWriter io.Writer, consoleWriter io.Writer) {
 	if isInitialied {
 		return

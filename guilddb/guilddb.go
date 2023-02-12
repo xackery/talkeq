@@ -159,7 +159,7 @@ func ChannelID(guildID int) string {
 	return guilds[guildID]
 }
 
-// GuildId returns the EQ guildID of a guild based on a provided discord channelID, returns 0 if no results
+// GuildID returns the EQ guildID of a guild based on a provided discord channelID, returns 0 if no results
 func GuildID(channelID string) int {
 	mu.RLock()
 	defer mu.RUnlock()
