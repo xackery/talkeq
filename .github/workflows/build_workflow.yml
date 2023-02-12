@@ -67,7 +67,7 @@ jobs:
         prerelease: false
         title: "${{ env.VERSION }}.${{ github.run_number }}"
         files: |
-          bin/filelistbuilder-linux-x64
-          bin/filelistbuilder-darwin-x64
-          bin/filelistbuilder-win-x64.exe
-          bin/filelistbuilder-win-x86.exe
+          bin/talkeq-${{ env.VERSION }}-linux-x64.exe
+          bin/talkeq-${{ env.VERSION }}-win-x64.exe
+          bin/talkeq-${{ env.VERSION }}-win-x86.exe
+          bin/talkeq-${{ env.VERSION}}-osx-x64.exe
