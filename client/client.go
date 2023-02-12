@@ -238,13 +238,13 @@ func (c *Client) loop(ctx context.Context) {
 func (c *Client) onMessage(rawReq interface{}) error {
 	var err error
 
-	switch rawReq.(type) {
+	switch req := rawReq.(type) {
 	case request.APICommand:
-		err = c.api.Command(rawReq.(request.APICommand))
+		err = c.api.Command(req)
 	case request.DiscordSend:
-		err = c.discord.Send(rawReq.(request.DiscordSend))
+		err = c.discord.Send(req)
 	case request.TelnetSend:
-		err = c.telnet.Send(rawReq.(request.TelnetSend))
+		err = c.telnet.Send(req)
 	default:
 		return fmt.Errorf("unknown request type")
 	}

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"strings"
 	"sync"
 
 	"github.com/xackery/talkeq/request"
@@ -26,7 +25,6 @@ type EQLog struct {
 	mutex       sync.RWMutex
 	config      config.EQLog
 	subscribers []func(interface{}) error
-	isNewEQLog  bool
 }
 
 // New creates a new eqlog connect
@@ -203,18 +201,4 @@ func (t *EQLog) Subscribe(ctx context.Context, onMessage func(interface{}) error
 	defer t.mutex.Unlock()
 	t.subscribers = append(t.subscribers, onMessage)
 	return nil
-}
-
-func sanitize(data string) string {
-	data = strings.Replace(data, `%`, "&PCT;", -1)
-	re := regexp.MustCompile("[^\x00-\x7F]+")
-	data = re.ReplaceAllString(data, "")
-	return data
-}
-
-// alphanumeric sanitizes incoming data to only be valid
-func alphanumeric(data string) string {
-	re := regexp.MustCompile("[^a-zA-Z0-9_]+")
-	data = re.ReplaceAllString(data, "")
-	return data
 }

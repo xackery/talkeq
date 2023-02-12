@@ -30,11 +30,11 @@ func TestConvertLinks(t *testing.T) {
 		{input: "multiple link test \x1200046F00000000000000000000000000000000000000000014D2720CMask of Tinkering\x12 and second \x1200046F00000000000000000000000000000000000000000014D2720CMask of Tinkering\x12", output: "multiple link test http://test.com?itemid=1135 (Mask of Tinkering) and second http://test.com?itemid=1135 (Mask of Tinkering)"},
 		{input: "\x1200046F000000000000000000000000000000000000000Mask of Tinkering\x12 0.8.0 style double link \x1200046F000000000000000000000000000000000000000Mask of Tinkering\x12", output: "http://test.com?itemid=1135 (Mask of Tinkering) 0.8.0 style double link http://test.com?itemid=1135 (Mask of Tinkering)"},
 		{input: "\x1200046F000000000000000000000000000000000000000Mask of Tinkering**\x12 0.8.0 style double link \x1200046F000000000000000000000000000000000000000Mask of Tinkering**\x12", output: "http://test.com?itemid=1135 (Mask of Tinkering**) 0.8.0 style double link http://test.com?itemid=1135 (Mask of Tinkering**)"},
-		{input: "\r> \b\bShin says ooc, '\x120112A4000000000000000000000000000000000000000000244AE3C6Frosted Gem of Ferocity\x12'\n", output: "> Shin says ooc, 'http://test.com?itemid=70308 (Frosted Gem of Ferocity)'"},
-		{input: "\r> \b\bShin says ooc, '\x120CA2150000000000000000000000000000000000000000002A46AF7CTae Ew War Maul**\x12'\n", output: "> Shin says ooc, 'http://test.com?itemid=827925 (Tae Ew War Maul**)'"},
-		{input: "\r> \b\bShin says ooc, '\x120CA2150000000000000000000000000000000000000000002A46AF7CSpell: Test\x12'\n", output: "> Shin says ooc, 'http://test.com?itemid=827925 (Spell: Test)'"},
-		{input: "\r> \b\bShin says ooc, '\x1209756800000000000000000000000000000000000000000048F274D9Magmaband of Cestus Dei +1\x12'\n", output: "> Shin says ooc, 'http://test.com?itemid=619880 (Magmaband of Cestus Dei +1)'"},
-		{input: "\r> \b\bShin says ooc, '\x1207A50C000000000000000000000000000000000000000000CC2F1766Infused 2 Handed Damage\x12'\n", output: "> Shin says ooc, 'http://test.com?itemid=501004 (Infused 2 Handed Damage)'"},
+		{input: "\r> \b\bShin says ooc, '\x120112A4000000000000000000000000000000000000000000244AE3C6Frosted Gem of Ferocity\x12'\n", output: "> \u0008\u0008Shin says ooc, 'http://test.com?itemid=70308 (Frosted Gem of Ferocity)'"},
+		{input: "\r> \b\bShin says ooc, '\x120CA2150000000000000000000000000000000000000000002A46AF7CTae Ew War Maul**\x12'\n", output: "> \u0008\u0008Shin says ooc, 'http://test.com?itemid=827925 (Tae Ew War Maul**)'"},
+		{input: "\r> \b\bShin says ooc, '\x120CA2150000000000000000000000000000000000000000002A46AF7CSpell: Test\x12'\n", output: "> \u0008\u0008Shin says ooc, 'http://test.com?itemid=827925 (Spell: Test)'"},
+		{input: "\r> \b\bShin says ooc, '\x1209756800000000000000000000000000000000000000000048F274D9Magmaband of Cestus Dei +1\x12'\n", output: "> \u0008\u0008Shin says ooc, 'http://test.com?itemid=619880 (Magmaband of Cestus Dei +1)'"},
+		{input: "\r> \b\bShin says ooc, '\x1207A50C000000000000000000000000000000000000000000CC2F1766Infused 2 Handed Damage\x12'\n", output: "> \u0008\u0008Shin says ooc, 'http://test.com?itemid=501004 (Infused 2 Handed Damage)'"},
 	}
 	for _, message := range messages {
 		result := client.convertLinks(message.input)

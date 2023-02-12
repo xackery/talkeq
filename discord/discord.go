@@ -142,11 +142,13 @@ func (t *Discord) Connect(ctx context.Context) error {
 		return err
 	}
 
-	//TODO: get /who working
-	/*err = t.whoRegister()
-	if err != nil {
-		return fmt.Errorf("whoRegister: %w", err)
-	}*/
+	// TODO: Get this working
+	if 1 == 0 {
+		err = t.whoRegister()
+		if err != nil {
+			return fmt.Errorf("whoRegister: %w", err)
+		}
+	}
 
 	return nil
 }

@@ -25,9 +25,7 @@ type SQLReport struct {
 	mutex          sync.RWMutex
 	config         config.SQLReport
 	conn           *sql.DB
-	subscribers    []func(string, string, int, string, string)
 	isInitialState bool
-	online         int
 	discClient     *discord.Discord
 }
 
