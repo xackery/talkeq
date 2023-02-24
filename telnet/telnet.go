@@ -209,8 +209,8 @@ func (t *Telnet) loop(ctx context.Context) {
 
 		data, err = t.conn.ReadUntil("\n")
 		if err != nil {
-			if strings.Contains(err.Error(), "unknown command: 242") {
-				tlog.Debugf("[telnet] received 242 message, ignoring (payload: %s)", data)
+			if strings.Contains(err.Error(), "unknown command:") {
+				tlog.Debugf("[telnet] received unknown command, ignoring: %s", data)
 				continue
 			}
 			tlog.Warnf("[telnet] read failed: %s", err)

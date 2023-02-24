@@ -13,7 +13,7 @@ require (
 	github.com/rs/zerolog v1.28.0
 	github.com/ziutek/telnet v0.0.0-20180329124119-c3b780dc415b
 	go.uber.org/zap v1.23.0
-	golang.org/x/text v0.3.7
+	golang.org/x/text v0.3.8
 )
 
 require (
