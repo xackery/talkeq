@@ -3,8 +3,11 @@ package telnet
 import (
 	"context"
 	"testing"
+	"time"
 
+	"github.com/xackery/talkeq/characterdb"
 	"github.com/xackery/talkeq/config"
+	"github.com/ziutek/telnet"
 )
 
 func TestConvertLinks(t *testing.T) {
@@ -41,5 +44,53 @@ func TestConvertLinks(t *testing.T) {
 		if result != message.output {
 			t.Fatalf("convertLinks %s failed: wanted '%s', got '%s'", message.input, message.output, result)
 		}
+	}
+}
+
+func TestTelnet_parseMessage(t *testing.T) {
+	type fields struct {
+		ctx            context.Context
+		cancel         context.CancelFunc
+		isConnected    bool
+		config         config.Telnet
+		conn           *telnet.Conn
+		subscribers    []func(interface{}) error
+		isNewTelnet    bool
+		isInitialState bool
+		isPlayerDump   bool
+		lastPlayerDump time.Time
+		characters     map[string]*characterdb.Character
+	}
+	type args struct {
+		msg string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   bool
+	}{
+		{name: "Test Online", fields: fields{}, args: args{}, want: true},
+		{name: "TestBlank", want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tr := &Telnet{
+				ctx:            tt.fields.ctx,
+				cancel:         tt.fields.cancel,
+				isConnected:    tt.fields.isConnected,
+				config:         tt.fields.config,
+				conn:           tt.fields.conn,
+				subscribers:    tt.fields.subscribers,
+				isNewTelnet:    tt.fields.isNewTelnet,
+				isInitialState: tt.fields.isInitialState,
+				isPlayerDump:   tt.fields.isPlayerDump,
+				lastPlayerDump: tt.fields.lastPlayerDump,
+				characters:     tt.fields.characters,
+			}
+			if got := tr.parseMessage(tt.args.msg); got != tt.want {
+				t.Errorf("Telnet.parseMessage() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
