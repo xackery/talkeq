@@ -1,4 +1,4 @@
-VERSION := v1.3.5
+VERSION := v1.3.6
 NAME := talkeq
 
 # CICD triggers this
@@ -39,7 +39,7 @@ build-darwin:
 .PHONY: build-linux
 build-linux:
 	@echo "build-linux: building ${VERSION}"
-	@GOOS=linux GOARCH=amd64 go build -buildmode=pie -ldflags="-X main.Version=${VERSION} -w" -o bin/${NAME}-${VERSION}-linux-x64 main.go		
+	@GOOS=linux GOARCH=amd64 go build -buildmode=pie -ldflags="-X main.Version=${VERSION} -w -extldflags '-static'" -o bin/${NAME}-${VERSION}-linux-x64 main.go		
 .PHONY: build-windows
 build-windows:
 	@echo "build-windows: building ${VERSION}"
