@@ -21,11 +21,12 @@ jobs:
     - name: Set Version
       run: make set-version
 
-
-
-    - name: Get dependencies
+    - name: Get distro dependencies
       run: sudo apt-get update && sudo apt-get install bc make
       if: ${{ runner.os == 'Linux' }}
+
+    - name: Get go dependencies
+      run: go get ./...
 
     - name: Set up Go
       uses: actions/setup-go@v4
