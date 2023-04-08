@@ -11,13 +11,13 @@ jobs:
         os: [ubuntu-latest]
 
     steps:
-    - name: Set version
-      run: make set-version
 
     - uses: actions/checkout@v3
       with:
         persist-credentials: false
 
+    - name: Set version
+      run: make set-version
 
     - name: Get distro dependencies
       run: sudo apt-get update && sudo apt-get install bc make
