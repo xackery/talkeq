@@ -9,6 +9,8 @@ jobs:
       matrix:
         go-version: [tip]
         os: [ubuntu-latest]
+    env:
+      GOPATH: ${{ github.workspace }}/go
 
     steps:
     - uses: actions/checkout@v3
