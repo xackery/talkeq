@@ -9,29 +9,28 @@ jobs:
       matrix:
         go-version: [tip]
         os: [ubuntu-latest]
-    env:
-      GOPATH: ${{ github.workspace }}/go
 
     steps:
+    - name: Set version
+      run: make set-version
+
     - uses: actions/checkout@v3
       with:
         persist-credentials: false
 
-    - name: Set Version
-      run: make set-version
 
     - name: Get distro dependencies
       run: sudo apt-get update && sudo apt-get install bc make
       if: ${{ runner.os == 'Linux' }}
 
 
-    - name: Set up Go
+    - name: Setup go
       uses: actions/setup-go@v4
       with:
-        go-version: 1.20
+        go-version: 1.20.1
 
     - name: Get go dependencies
-      run: go get ./...
+      run: go get .
 
     - name: Tests
       run: go test -tags ci ./...
@@ -61,7 +60,6 @@ jobs:
         GOARCH: amd64
       working-directory: .
       run: |
-        go get ./...
         make build-linux
         make build-windows
         make build-darwin
