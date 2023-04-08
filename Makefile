@@ -6,7 +6,6 @@ NAME := talkeq
 set-version:
 	@echo "VERSION=${VERSION}" >> $$GITHUB_ENV
 
-
 sanitize:
 	@echo "sanitize: checking for errors"
 	rm -rf vendor/
