@@ -1,4 +1,4 @@
-VERSION := v1.3.6
+VERSION := v1.3.7
 NAME := talkeq
 
 # CICD triggers this
@@ -26,7 +26,7 @@ run: sanitize
 test:
 	@go test -cover ./...
 .PHONY: build-all
-build-all: sanitize build-prepare build-linux build-darwin build-windows	
+build-all: sanitize build-prepare build-linux build-darwin build-windows
 .PHONY: build-prepare
 build-prepare:
 	@echo "Preparing talkeq ${VERSION}"
@@ -40,7 +40,7 @@ build-darwin:
 build-linux:
 	@echo "build-linux: building ${VERSION}"
 	go env
-	GOOS=linux GOARCH=amd64 go build -buildmode=pie -ldflags="-X main.Version=${VERSION} -w -extldflags '-static'" -o bin/${NAME}-${VERSION}-linux-x64 main.go		
+	GOOS=linux GOARCH=amd64 go build -buildmode=pie -ldflags="-X main.Version=${VERSION} -w -extldflags '-static'" -o bin/${NAME}-${VERSION}-linux-x64 main.go
 .PHONY: build-windows
 build-windows:
 	@echo "build-windows: building ${VERSION}"
