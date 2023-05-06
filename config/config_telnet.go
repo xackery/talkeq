@@ -3,22 +3,19 @@ package config
 import (
 	"fmt"
 	"text/template"
-	"time"
 )
 
 // Telnet represents config settings for telnet
 type Telnet struct {
 	IsEnabled               bool    `toml:"enabled" desc:"Enable Telnet"`
-	IsLegacy                bool    `toml:"legacy" desc:"EQEMU servers that run 0.8.0 versions need this for item link support"`
-	Host                    string  `toml:"host" desc:"Host where telnet is found"`
+	IsLegacy                bool    `toml:"legacy" desc:"EQEMU servers that run 0.8.0 versions need this set to true for item link support, everyone running any newer versions can leave it default (false)"`
+	Host                    string  `toml:"host" desc:"Address where telnet is found. By default, newer telnet clients will auto success on 127.0.0.1:9000"`
 	Username                string  `toml:"username" desc:"Optional. Username to connect to telnet to. (By default, newer telnet clients will auto succeed if localhost)"`
 	Password                string  `toml:"password" desc:"Optional. Password to connect to telnet to. (By default, newer telnet clients will auto succeed if localhost)"`
 	Routes                  []Route `toml:"routes" desc:"Routes from telnet to other services"`
 	ItemURL                 string  `toml:"item_url" desc:"Optional. Converts item URLs to provided field. defaults to allakhazam. To disable, change to \n# default: \"http://everquest.allakhazam.com/db/item.html?item=\""`
 	IsServerAnnounceEnabled bool    `toml:"announce_server_status" desc:"Optional. Annunce when a server changes state to OOC channel (Server UP/Down)"`
-	MessageDeadline         string  `toml:"message_deadline" desc:"How long to wait for messages. (Advanced users only)\n# defaut: 10s"`
-	messageDeadlineDuration time.Duration
-	IsOOCAuctionEnabled     bool `toml:"convert_ooc_auction" desc:"if a OOC message uses prefix WTS or WTB, convert them into auction"`
+	IsOOCAuctionEnabled     bool    `toml:"convert_ooc_auction" desc:"if a OOC message uses prefix WTS or WTB, convert them into auction"`
 }
 
 // TelnetEntry represents telnet event pattern detection
@@ -44,17 +41,4 @@ func (c *Telnet) Verify() error {
 		}
 	}
 	return nil
-}
-
-// MessageDeadlineDuration returns the converted retry rate
-func (c *Telnet) MessageDeadlineDuration() time.Duration {
-	deadlineDuration, err := time.ParseDuration(c.MessageDeadline)
-	if err != nil {
-		return 10 * time.Second
-	}
-
-	if deadlineDuration < 10*time.Second {
-		return 10 * time.Second
-	}
-	return deadlineDuration
 }

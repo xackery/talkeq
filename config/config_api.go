@@ -3,7 +3,7 @@ package config
 import (
 	"fmt"
 
-	"github.com/xackery/log"
+	"github.com/xackery/talkeq/tlog"
 )
 
 // API represents an API listening service
@@ -21,7 +21,6 @@ type APIRegister struct {
 
 // Verify checks if config looks valid
 func (c *API) Verify() error {
-	log := log.New()
 	if !c.IsEnabled {
 		return nil
 	}
@@ -33,7 +32,7 @@ func (c *API) Verify() error {
 	}
 
 	if c.Host == "" {
-		log.Debug().Msg("api host was empty, defaulting to 127.0.0.1:9933")
+		tlog.Debugf("[api] host was empty, defaulting to 127.0.0.1:9933")
 		c.Host = "127.0.0.1:9933"
 	}
 

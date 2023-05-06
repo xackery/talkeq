@@ -7,11 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xackery/log"
+	"github.com/xackery/talkeq/registerdb"
+	"github.com/xackery/talkeq/tlog"
+	"github.com/xackery/talkeq/userdb"
 )
 
 func (t *API) registerConfirm(w http.ResponseWriter, r *http.Request) {
-	log := log.New()
 	type Resp struct {
 		Message string `json:"message"`
 	}
@@ -26,7 +27,7 @@ func (t *API) registerConfirm(w http.ResponseWriter, r *http.Request) {
 		resp.Message = "code required"
 		err := json.NewEncoder(w).Encode(resp)
 		if err != nil {
-			log.Warn().Err(err).Msg("encode response")
+			tlog.Warnf("[api] encode response failed: %s", err)
 		}
 		return
 	}
@@ -34,17 +35,17 @@ func (t *API) registerConfirm(w http.ResponseWriter, r *http.Request) {
 		resp.Message = "action required"
 		err := json.NewEncoder(w).Encode(resp)
 		if err != nil {
-			log.Warn().Err(err).Msg("encode response")
+			tlog.Warnf("[api] encode response failed: %s", err)
 		}
 		return
 	}
 
-	entry, err := t.registerManager.FindByCode(code)
+	entry, err := registerdb.FindByCode(code)
 	if err != nil {
 		resp.Message = err.Error()
 		err := json.NewEncoder(w).Encode(resp)
 		if err != nil {
-			log.Warn().Err(err).Msg("encode response")
+			tlog.Warnf("[api] encode response failed: %s", err)
 		}
 		return
 	}
@@ -53,32 +54,32 @@ func (t *API) registerConfirm(w http.ResponseWriter, r *http.Request) {
 		resp.Message = "code used already"
 		err := json.NewEncoder(w).Encode(resp)
 		if err != nil {
-			log.Warn().Err(err).Msg("encode response")
+			tlog.Warnf("[api] encode response failed: %s", err)
 		}
 		return
 	}
 
 	if strings.ToLower(action) == "deny" {
-		err = t.registerManager.Update(entry.DiscordID, "Denied", time.Now().Add(24*time.Hour).Unix())
+		err = registerdb.Update(entry.DiscordID, "Denied", time.Now().Add(24*time.Hour).Unix())
 		if err != nil {
-			log.Warn().Err(err).Msg("registerManager update")
+			tlog.Warnf("[api] registerdb update deny failed: %s", err)
 		}
 		resp.Message = "denied request"
 		err = json.NewEncoder(w).Encode(&Resp{})
 		if err != nil {
-			log.Warn().Err(err).Msg("encode response")
+			tlog.Warnf("[api] encode response failed: %s", err)
 		}
 		return
 	}
 	if strings.ToLower(action) == "report" {
-		err = t.registerManager.Update(entry.DiscordID, "Reported", time.Now().Add(24*time.Hour).Unix())
+		err = registerdb.Update(entry.DiscordID, "Reported", time.Now().Add(24*time.Hour).Unix())
 		if err != nil {
-			log.Warn().Err(err).Msg("registerManager update")
+			tlog.Warnf("[api] registerdb update report failed: %s", err)
 		}
 		resp.Message = "reported request"
 		err = json.NewEncoder(w).Encode(&Resp{})
 		if err != nil {
-			log.Warn().Err(err).Msg("encode response")
+			tlog.Warnf("[api] encode response failed: %s", err)
 		}
 		return
 	}
@@ -86,30 +87,29 @@ func (t *API) registerConfirm(w http.ResponseWriter, r *http.Request) {
 		resp.Message = "unknown action: " + action
 		err = json.NewEncoder(w).Encode(&Resp{})
 		if err != nil {
-			log.Warn().Err(err).Msg("encode response")
+			tlog.Warnf("[api] encode response failed: %s", err)
 		}
 		return
 	}
 
-	t.userManager.Set(entry.DiscordID, entry.CharacterName)
+	userdb.Set(entry.DiscordID, entry.CharacterName)
 
-	err = t.registerManager.Update(entry.DiscordID, "Confirmed", time.Now().Add(24*time.Hour).Unix())
+	err = registerdb.Update(entry.DiscordID, "Confirmed", time.Now().Add(24*time.Hour).Unix())
 	if err != nil {
-		log.Warn().Err(err).Msg("registerManager update")
+		tlog.Warnf("[api] registerdb update failed: %s", err)
 	}
 	err = t.discord.EditMessage(entry.ChannelID, entry.MessageID, fmt.Sprintf("I sent a /tell to %s, you have 2 minutes to go in game and [ accept ] it. Status: Confirmed", entry.CharacterName))
 	if err != nil {
 		resp.Message = err.Error()
 		err := json.NewEncoder(w).Encode(resp)
 		if err != nil {
-			log.Warn().Err(err).Msg("encode response")
+			tlog.Warnf("[api] encode response failed: %s", err)
 		}
 		return
 	}
 	resp.Message = "confirmed successfully"
 	err = json.NewEncoder(w).Encode(&Resp{})
 	if err != nil {
-		log.Warn().Err(err).Msg("encode response")
+		tlog.Warnf("[api] encode response failed: %s", err)
 	}
-	return
 }

@@ -3,36 +3,99 @@ package telnet
 import (
 	"context"
 	"testing"
+	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/xackery/log"
+	"github.com/xackery/talkeq/characterdb"
 	"github.com/xackery/talkeq/config"
+	"github.com/ziutek/telnet"
 )
 
-func TestConvertLinks(t *testing.T) {
-	assert := assert.New(t)
-	//[\x1200046F000000000000000000000000000000000000000Mask of Tinkering\x12]
-	//latest looks like this
-	//\x1200F406000000000000000000000000000000000000000000B519D6B0Ring of Prophetic Visions\x12'\n"
-	client, err := New(context.Background(), config.Telnet{
-		ItemURL: "http://test.com?itemid=",
-	})
-	if !assert.NoError(err) {
-		t.Fatal(err)
+func TestTelnet_IsConnected(t *testing.T) {
+	type fields struct {
+		ctx            context.Context
+		cancel         context.CancelFunc
+		isConnected    bool
+		config         config.Telnet
+		conn           *telnet.Conn
+		subscribers    []func(interface{}) error
+		isNewTelnet    bool
+		isInitialState bool
+		isPlayerDump   bool
+		lastPlayerDump time.Time
+		characters     map[string]*characterdb.Character
 	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   bool
+	}{
+		{name: "TestBlank"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tr := &Telnet{
+				ctx:            tt.fields.ctx,
+				cancel:         tt.fields.cancel,
+				isConnected:    tt.fields.isConnected,
+				config:         tt.fields.config,
+				conn:           tt.fields.conn,
+				subscribers:    tt.fields.subscribers,
+				isNewTelnet:    tt.fields.isNewTelnet,
+				isInitialState: tt.fields.isInitialState,
+				isPlayerDump:   tt.fields.isPlayerDump,
+				lastPlayerDump: tt.fields.lastPlayerDump,
+				characters:     tt.fields.characters,
+			}
+			if got := tr.IsConnected(); got != tt.want {
+				t.Errorf("Telnet.IsConnected() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
-	messages := []string{
-		`no url test`,
-		"\x1200046F000000000000000000000000000000000000000Mask of Tinkering\x12 0.8.0 style",
-		"\x1200F406000000000000000000000000000000000000000000B519D6B0Ring of Prophetic Visions\x12'\n",
-		"\x1200046F00000000000000000000000000000000000000000014D2720CMask of Tinkering\x12",
-		"multiple link test \x1200046F00000000000000000000000000000000000000000014D2720CMask of Tinkering\x12 and second \x1200046F00000000000000000000000000000000000000000014D2720CMask of Tinkering\x12",
-		"\x1200046F000000000000000000000000000000000000000Mask of Tinkering\x12 0.8.0 style double link \x1200046F000000000000000000000000000000000000000Mask of Tinkering\x12",
-		"\r> \b\bShin says ooc, '\x120112A4000000000000000000000000000000000000000000244AE3C6Frosted Gem of Ferocity\x12'\n",
+func TestTelnet_Connect(t *testing.T) {
+	type fields struct {
+		ctx            context.Context
+		cancel         context.CancelFunc
+		isConnected    bool
+		config         config.Telnet
+		conn           *telnet.Conn
+		subscribers    []func(interface{}) error
+		isNewTelnet    bool
+		isInitialState bool
+		isPlayerDump   bool
+		lastPlayerDump time.Time
+		characters     map[string]*characterdb.Character
 	}
-	log := log.New()
-	for _, message := range messages {
-		message = client.convertLinks(message)
-		log.Debug().Msgf("finalMessage: %s", message)
+	type args struct {
+		ctx context.Context
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{name: "Test"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tr := &Telnet{
+				ctx:            tt.fields.ctx,
+				cancel:         tt.fields.cancel,
+				isConnected:    tt.fields.isConnected,
+				config:         tt.fields.config,
+				conn:           tt.fields.conn,
+				subscribers:    tt.fields.subscribers,
+				isNewTelnet:    tt.fields.isNewTelnet,
+				isInitialState: tt.fields.isInitialState,
+				isPlayerDump:   tt.fields.isPlayerDump,
+				lastPlayerDump: tt.fields.lastPlayerDump,
+				characters:     tt.fields.characters,
+			}
+			if err := tr.Connect(tt.args.ctx); (err != nil) != tt.wantErr {
+				t.Errorf("Telnet.Connect() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }

@@ -8,9 +8,9 @@ import (
 // Discord represents config settings for discord
 type Discord struct {
 	IsEnabled       bool           `toml:"enabled" desc:"Enable Discord"`
-	Token           string         `toml:"bot_token" desc:"Required. Found at https://discordapp.com/developers/ under your app's bot's section"`
+	Token           string         `toml:"bot_token" desc:"Required. Found at https://discordapp.com/developers/ under your app's bot token area."`
 	ServerID        string         `toml:"server_id" desc:"Required. In Discord, right click the circle button representing your server, and Copy ID, and paste it here."`
-	ClientID        string         `toml:"client_id" desc:"Required. Found at https://discordapp.com/developers/ under your app's main page"`
+	ClientID        string         `toml:"client_id" desc:"Required. Found at https://discordapp.com/developers/ under your app's general information page, called Application ID"`
 	BotStatus       string         `toml:"bot_status" desc:"Status to show below bot. e.g. \"Playing EQ: 123 Online\"\n# {{.PlayerCount}} to show playercount"`
 	CommandChannels []string       `toml:"command_channels" desc:"Commands are parsed in provided channel ids"`
 	Routes          []DiscordRoute `toml:"routes" desc:"When a message is created in discord, how to route it"`
@@ -20,9 +20,9 @@ type Discord struct {
 type DiscordRoute struct {
 	IsEnabled              bool           `toml:"enabled" desc:"Is route enabled?"`
 	Trigger                DiscordTrigger `toml:"discord_trigger" desc:"condition to trigger route"`
-	Target                 string         `toml:"target" desc:"target service, e.g. telnet"`
-	ChannelID              string         `toml:"channel_id" desc:"Destination channel ID, e.g. OOC is 260"`
-	GuildID                string         `toml:"guild_id" desc:"Optional, Destination guild ID"`
+	Target                 string         `toml:"target" desc:"target service, examples: telnet, discord"`
+	ChannelID              string         `toml:"channel_id" desc:"Destination channel ID, For telnet->ooc, set to 260. More values have MT_ prefix in this link: https://docs.eqemu.io/server/operation/chat-channel-types/"`
+	GuildID                string         `toml:"guild_id,omitempty" desc:"Optional, and likely not needed to be set since guilddb file is better, destination guild ID to relay the discord message to"`
 	MessagePattern         string         `toml:"message_pattern" desc:"Destination message in. E.g. {{.Name}} says {{.ChannelName}}, '{{.Message}}"`
 	messagePatternTemplate *template.Template
 }
