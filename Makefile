@@ -1,4 +1,4 @@
-VERSION := v1.3.7
+VERSION := v1.3.8
 NAME := talkeq
 
 # run a copy of talkeq
@@ -6,11 +6,6 @@ run: sanitize
 	@echo "run: building"
 	mkdir -p bin
 	cd bin && go run ../main.go
-
-# CICD triggers this
-.PHONY: set-variable
-set-version:
-	@echo "VERSION=${VERSION}" >> $$GITHUB_ENV
 
 # clean up and check for errors
 sanitize:
