@@ -1,4 +1,4 @@
-VERSION := v1.3.8
+VERSION ?= v1.3.8
 NAME := talkeq
 
 # run a copy of talkeq
@@ -55,6 +55,5 @@ analyze:
 	binskim analyze bin/${NAME}-${VERSION}-linux-x64
 
 # CICD triggers this
-.PHONY: set-variable
-set-version:
-	@echo "VERSION=${VERSION}" >> $$GITHUB_ENV
+set-version-%:
+	@echo "VERSION=${VERSION}.$*" >> $$GITHUB_ENV
