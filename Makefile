@@ -42,7 +42,7 @@ build-darwin:
 build-linux:
 	@echo "build-linux: building ${VERSION}"
 	go env
-	GOOS=linux GOARCH=amd64 go build -buildmode=pie -ldflags="-X main.Version=${VERSION} -w -extldflags '-static'" -o bin/${NAME}-${VERSION}-linux-x64 main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-X main.Version=${VERSION} -s -w" -o bin/${NAME}-${VERSION}-linux-x64 main.go
 
 #make a windows binary
 build-windows:
