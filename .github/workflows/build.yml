@@ -17,7 +17,6 @@ jobs:
           prerelease: true
           title: "${{env.VERSION}} (Preview)"
           files: |
-            bin/talkeq-${{env.VERSION}}-linux-x64
-            bin/talkeq-${{env.VERSION}}-win-x64.exe
-            bin/talkeq-${{env.VERSION}}-win-x86.exe
-            bin/talkeq-${{env.VERSION}}-darwin-x64
+            bin/talkeq-linux
+            bin/talkeq-windows.exe
+            bin/talkeq-darwin

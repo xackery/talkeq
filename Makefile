@@ -36,23 +36,23 @@ build-prepare:
 # make a darwin binary
 build-darwin:
 	@echo "build-darwin: building ${VERSION}"
-	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -buildmode=pie -ldflags="-X main.Version=${VERSION} -s -w" -o bin/${NAME}-${VERSION}-darwin-x64 main.go
+	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -buildmode=pie -ldflags="-X main.Version=${VERSION} -s -w" -o bin/${NAME}-darwin main.go
 
 # make a linux binary
 build-linux:
 	@echo "build-linux: building ${VERSION}"
 	go env
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-X main.Version=${VERSION} -s -w" -o bin/${NAME}-${VERSION}-linux-x64 main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-X main.Version=${VERSION} -s -w" -o bin/${NAME}-linux main.go
 
 #make a windows binary
 build-windows:
 	@echo "build-windows: building ${VERSION}"
-	GOOS=windows GOARCH=amd64 go build -buildmode=pie -ldflags="-X main.Version=${VERSION} -s -w" -o bin/${NAME}-${VERSION}-win-x64.exe main.go
-	GOOS=windows GOARCH=386 go build -buildmode=pie -ldflags="-X main.Version=${VERSION} -s -w" -o bin/${NAME}-${VERSION}-win-x86.exe main.go
+	GOOS=windows GOARCH=amd64 go build -buildmode=pie -ldflags="-X main.Version=${VERSION} -s -w" -o bin/${NAME}-windows.exe main.go
+	@#GOOS=windows GOARCH=386 go build -buildmode=pie -ldflags="-X main.Version=${VERSION} -s -w" -o bin/${NAME}-windows-x86.exe main.go
 
 # analyze the binary using binskim
 analyze:
-	binskim analyze bin/${NAME}-${VERSION}-linux-x64
+	binskim analyze bin/${NAME}-linux
 
 # CICD triggers this
 set-version-%:
