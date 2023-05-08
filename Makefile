@@ -58,3 +58,8 @@ build-windows:
 # analyze the binary using binskim
 analyze:
 	binskim analyze bin/${NAME}-${VERSION}-linux-x64
+
+# CICD triggers this
+.PHONY: set-variable
+set-version:
+	@echo "VERSION=${VERSION}" >> $$GITHUB_ENV
