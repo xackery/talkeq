@@ -15,7 +15,7 @@ jobs:
           repo_token: "${{secrets.GITHUB_TOKEN}}"
           automatic_release_tag: "${{env.VERSION}}"
           prerelease: true
-          title: "${{env.VERSION}} (Preview)"
+          title: "${{env.VERSION}}"
           files: |
             bin/talkeq-linux
             bin/talkeq-windows.exe
