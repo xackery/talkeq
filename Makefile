@@ -29,7 +29,7 @@ test:
 	@go test -cover ./...
 
 # build all supported versions
-build-all: sanitize build-prepare build-linux build-darwin build-windows
+build-all: build-prepare build-linux build-darwin build-windows
 
 # prep for building
 build-prepare:
