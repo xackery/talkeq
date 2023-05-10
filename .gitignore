@@ -38,7 +38,7 @@ _testmain.go
 *.test
 *.prof
 
-*.toml
+/*.toml
 
 talkeq_guilds.txt
 talkeq.log
