@@ -11,8 +11,6 @@ import (
 	"github.com/xackery/talkeq/request"
 	"github.com/xackery/talkeq/tlog"
 
-	"github.com/pkg/errors"
-
 	"github.com/hpcloud/tail"
 	"github.com/xackery/talkeq/config"
 )
@@ -50,7 +48,7 @@ func New(ctx context.Context, config config.EQLog) (*EQLog, error) {
 
 	_, err := os.Stat(t.config.Path)
 	if err != nil {
-		return nil, errors.Wrapf(err, "%s", t.config.Path)
+		return nil, fmt.Errorf("stat path %s: %w", t.config.Path, err)
 	}
 	return t, nil
 }

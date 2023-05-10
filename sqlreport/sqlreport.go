@@ -11,7 +11,6 @@ import (
 
 	//used for database connection
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/pkg/errors"
 	"github.com/xackery/talkeq/config"
 	"github.com/xackery/talkeq/discord"
 	"github.com/xackery/talkeq/tlog"
@@ -83,7 +82,7 @@ func (t *SQLReport) Connect(ctx context.Context) error {
 
 	t.conn, err = sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", t.config.Username, t.config.Password, t.config.Host, t.config.Database))
 	if err != nil {
-		return errors.Wrap(err, "sqlreport connect")
+		return fmt.Errorf("sqlreport connect: %w", err)
 	}
 
 	go t.loop(ctx)

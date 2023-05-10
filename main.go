@@ -7,7 +7,6 @@ import (
 	"os/signal"
 	"runtime"
 
-	"github.com/pkg/errors"
 	"github.com/xackery/talkeq/client"
 	"github.com/xackery/talkeq/tlog"
 )
@@ -59,12 +58,12 @@ func run(w *os.File) (err error) {
 
 	c, err := client.New(ctx)
 	if err != nil {
-		return errors.Wrap(err, "new client")
+		return fmt.Errorf("new client: %w", err)
 	}
 
 	err = c.Connect(ctx)
 	if err != nil {
-		return errors.Wrap(err, "connect")
+		return fmt.Errorf("connect: %w", err)
 	}
 
 	select {
@@ -72,7 +71,7 @@ func run(w *os.File) (err error) {
 	case <-signalChan:
 		err = c.Disconnect(ctx)
 		if err != nil {
-			return errors.Wrap(err, "signal disconnect")
+			return fmt.Errorf("signal disconnect: %w", err)
 		}
 		tlog.Infof("exiting, interrupt signal sent")
 	}

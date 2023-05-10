@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/xackery/talkeq/characterdb"
 	"github.com/xackery/talkeq/config"
 	"github.com/xackery/talkeq/request"
@@ -96,22 +95,22 @@ func (t *Telnet) Connect(ctx context.Context) error {
 
 	t.conn, err = telnet.Dial("tcp", t.config.Host)
 	if err != nil {
-		return errors.Wrap(err, "dial")
+		return fmt.Errorf("dial: %w", err)
 	}
 	err = t.conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 	if err != nil {
-		return errors.Wrap(err, "set read deadline")
+		return fmt.Errorf("set read deadline: %w", err)
 	}
 	err = t.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 	if err != nil {
-		return errors.Wrap(err, "set write deadline")
+		return fmt.Errorf("set write deadline: %w", err)
 	}
 	index := 0
 	skipAuth := false
 
 	index, err = t.conn.SkipUntilIndex("Username:", "Connection established from localhost, assuming admin")
 	if err != nil {
-		return errors.Wrap(err, "unexpected initial handshake")
+		return fmt.Errorf("unexpected initial handshake: %w", err)
 	}
 	if index != 0 {
 		skipAuth = true
@@ -124,28 +123,28 @@ func (t *Telnet) Connect(ctx context.Context) error {
 
 		err = t.sendLn(t.config.Username)
 		if err != nil {
-			return errors.Wrap(err, "send username")
+			return fmt.Errorf("send username: %w", err)
 		}
 
 		err = t.conn.SkipUntil("Password:")
 		if err != nil {
-			return errors.Wrap(err, "wait for password prompt")
+			return fmt.Errorf("wait for password prompt: %w", err)
 		}
 
 		err = t.sendLn(t.config.Password)
 		if err != nil {
-			return errors.Wrap(err, "send password")
+			return fmt.Errorf("send password: %w", err)
 		}
 	}
 
 	err = t.sendLn("echo off")
 	if err != nil {
-		return errors.Wrap(err, "echo off")
+		return fmt.Errorf("echo off: %w", err)
 	}
 
 	err = t.sendLn("acceptmessages on")
 	if err != nil {
-		return errors.Wrap(err, "acceptmessages on")
+		return fmt.Errorf("acceptmessages on: %w", err)
 	}
 
 	t.conn.SetReadDeadline(time.Time{})
@@ -327,7 +326,7 @@ func (t *Telnet) sendLn(s string) (err error) {
 
 	_, err = t.conn.Write(buf)
 	if err != nil {
-		return errors.Wrapf(err, "sendLn: %s", s)
+		return fmt.Errorf("sendLn: %s: %w", s, err)
 	}
 	return
 }

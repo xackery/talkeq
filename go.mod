@@ -9,7 +9,6 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/hpcloud/tail v1.0.0
 	github.com/jbsmith7741/toml v0.3.1-0.20171003150610-484e047de162
-	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.28.0
 	github.com/ziutek/telnet v0.0.0-20180329124119-c3b780dc415b
 	go.uber.org/zap v1.23.0

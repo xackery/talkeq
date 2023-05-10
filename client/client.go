@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/xackery/talkeq/api"
 	"github.com/xackery/talkeq/config"
 	"github.com/xackery/talkeq/discord"
@@ -43,7 +42,7 @@ func New(ctx context.Context) (*Client, error) {
 	tlog.Debugf("[talkeq] initializing talkeq client")
 	c.config, err = config.NewConfig(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "config")
+		return nil, fmt.Errorf("config: %w", err)
 	}
 
 	tlog.Debugf("[talkeq] initializing databases")
@@ -60,58 +59,58 @@ func New(ctx context.Context) (*Client, error) {
 	tlog.Debugf("[talkeq] initializing 3rd party connections")
 	c.discord, err = discord.New(ctx, c.config.Discord)
 	if err != nil {
-		return nil, errors.Wrap(err, "discord")
+		return nil, fmt.Errorf("discord: %w", err)
 	}
 
 	err = c.discord.Subscribe(ctx, c.onMessage)
 	if err != nil {
-		return nil, errors.Wrap(err, "discord subscribe")
+		return nil, fmt.Errorf("discord subscribe: %w", err)
 	}
 
 	c.telnet, err = telnet.New(ctx, c.config.Telnet)
 	if err != nil {
-		return nil, errors.Wrap(err, "telnet")
+		return nil, fmt.Errorf("telnet: %w", err)
 	}
 
 	c.sqlreport, err = sqlreport.New(ctx, c.config.SQLReport, c.discord)
 	if err != nil {
-		return nil, errors.Wrap(err, "sqlreport")
+		return nil, fmt.Errorf("sqlreport: %w", err)
 	}
 
 	err = c.telnet.Subscribe(ctx, c.onMessage)
 	if err != nil {
-		return nil, errors.Wrap(err, "telnet subscribe")
+		return nil, fmt.Errorf("telnet subscribe: %w", err)
 	}
 
 	c.eqlog, err = eqlog.New(ctx, c.config.EQLog)
 	if err != nil {
-		return nil, errors.Wrap(err, "eqlog")
+		return nil, fmt.Errorf("eqlog: %w", err)
 	}
 
 	err = c.eqlog.Subscribe(ctx, c.onMessage)
 	if err != nil {
-		return nil, errors.Wrap(err, "eqlog subscribe")
+		return nil, fmt.Errorf("eqlog subscribe: %w", err)
 	}
 
 	c.peqeditorsql, err = peqeditorsql.New(ctx, c.config.PEQEditor.SQL)
 	if err != nil {
-		return nil, errors.Wrap(err, "peqeditorsql")
+		return nil, fmt.Errorf("peqeditorsql: %w", err)
 	}
 
 	err = c.peqeditorsql.Subscribe(ctx, c.onMessage)
 	if err != nil {
-		return nil, errors.Wrap(err, "peqeditorsql subscribe")
+		return nil, fmt.Errorf("peqeditorsql subscribe: %w", err)
 	}
 
 	tlog.Debugf("[talkeq] initializing API")
 	c.api, err = api.New(ctx, c.config.API, c.discord)
 	if err != nil {
-		return nil, errors.Wrap(err, "api subscribe")
+		return nil, fmt.Errorf("api subscribe: %w", err)
 	}
 
 	err = c.api.Subscribe(ctx, c.onMessage)
 	if err != nil {
-		return nil, errors.Wrap(err, "api subscribe")
+		return nil, fmt.Errorf("api subscribe: %w", err)
 	}
 
 	return &c, nil
@@ -124,7 +123,7 @@ func (c *Client) Connect(ctx context.Context) error {
 	err := c.discord.Connect(ctx)
 	if err != nil {
 		if !c.config.IsKeepAliveEnabled {
-			return errors.Wrap(err, "discord connect")
+			return fmt.Errorf("discord connect: %w", err)
 		}
 		tlog.Warnf("[discord] connect failed: %s", err)
 	}
@@ -132,7 +131,7 @@ func (c *Client) Connect(ctx context.Context) error {
 	err = c.telnet.Connect(ctx)
 	if err != nil {
 		if !c.config.IsKeepAliveEnabled {
-			return errors.Wrap(err, "telnet connect")
+			return fmt.Errorf("telnet connect: %w", err)
 		}
 		tlog.Warnf("[telnet] connect failed: %s", err)
 	}
@@ -140,7 +139,7 @@ func (c *Client) Connect(ctx context.Context) error {
 	err = c.sqlreport.Connect(ctx)
 	if err != nil {
 		if !c.config.IsKeepAliveEnabled {
-			return errors.Wrap(err, "sqlreport connect")
+			return fmt.Errorf("sqlreport connect: %w", err)
 		}
 		tlog.Warnf("[sqlreport] connect failed: %s", err)
 	}
@@ -148,7 +147,7 @@ func (c *Client) Connect(ctx context.Context) error {
 	err = c.eqlog.Connect(ctx)
 	if err != nil {
 		if !c.config.IsKeepAliveEnabled {
-			return errors.Wrap(err, "eqlog connect")
+			return fmt.Errorf("eqlog connect: %w", err)
 		}
 		tlog.Warnf("[eqlog] connect failed: %s", err)
 	}
@@ -156,7 +155,7 @@ func (c *Client) Connect(ctx context.Context) error {
 	err = c.peqeditorsql.Connect(ctx)
 	if err != nil {
 		if !c.config.IsKeepAliveEnabled {
-			return errors.Wrap(err, "peqeditorsql connect")
+			return fmt.Errorf("peqeditorsql connect: %w", err)
 		}
 		tlog.Warnf("[peqeditorsql] connect failed: %s", err)
 	}
@@ -164,7 +163,7 @@ func (c *Client) Connect(ctx context.Context) error {
 	err = c.api.Connect(ctx)
 	if err != nil {
 		if !c.config.IsKeepAliveEnabled {
-			return errors.Wrap(err, "api connect")
+			return fmt.Errorf("api connect: %w", err)
 		}
 		tlog.Warnf("[api] connect failed: %s", err)
 	}
@@ -258,7 +257,7 @@ func (c *Client) onMessage(rawReq interface{}) error {
 func (c *Client) Disconnect(ctx context.Context) error {
 	err := c.discord.Disconnect(ctx)
 	if err != nil {
-		return errors.Wrap(err, "discord")
+		return fmt.Errorf("discord: %w", err)
 	}
 	c.cancel()
 	return nil

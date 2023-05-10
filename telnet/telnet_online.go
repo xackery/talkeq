@@ -2,12 +2,12 @@ package telnet
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/xackery/talkeq/characterdb"
 	"github.com/xackery/talkeq/tlog"
 )
@@ -127,7 +127,7 @@ func (t *Telnet) parsePlayersOnline(msg string) bool {
 func (t *Telnet) Who(ctx context.Context) (int, error) {
 	err := t.sendLn("who")
 	if err != nil {
-		return 0, errors.Wrap(err, "who request")
+		return 0, fmt.Errorf("who request: %w", err)
 	}
 	time.Sleep(100 * time.Millisecond)
 	t.mu.RLock()

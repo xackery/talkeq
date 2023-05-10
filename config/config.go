@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/jbsmith7741/toml"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 )
 
@@ -48,22 +47,22 @@ func NewConfig(ctx context.Context) (*Config, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			return nil, errors.Wrap(err, "config info")
+			return nil, fmt.Errorf("config info: %w", err)
 		}
 		f, err = os.Create(path)
 		if err != nil {
-			return nil, errors.Wrap(err, "create talkeq.conf")
+			return nil, fmt.Errorf("create talkeq.conf: %w", err)
 		}
 		fi, err = os.Stat(path)
 		if err != nil {
-			return nil, errors.Wrap(err, "new config info")
+			return nil, fmt.Errorf("new config info: %w", err)
 		}
 		isNewConfig = true
 	}
 	if !isNewConfig {
 		f, err = os.Open(path)
 		if err != nil {
-			return nil, errors.Wrap(err, "open config")
+			return nil, fmt.Errorf("open config: %w", err)
 		}
 	}
 
@@ -87,7 +86,7 @@ func NewConfig(ctx context.Context) (*Config, error) {
 
 	_, err = toml.DecodeReader(f, &cfg)
 	if err != nil {
-		return nil, errors.Wrap(err, "decode talkeq.conf")
+		return nil, fmt.Errorf("decode talkeq.conf: %w", err)
 	}
 	fw, err := os.Create("talkeq2.toml")
 	if err != nil {
@@ -121,7 +120,7 @@ func NewConfig(ctx context.Context) (*Config, error) {
 func (c *Config) Verify() error {
 
 	if c.UsersDatabasePath == "" {
-		c.UsersDatabasePath = "talkeq_users.toml"
+		c.UsersDatabasePath = "talkeq_users.txt"
 	}
 
 	if c.GuildsDatabasePath == "" {
@@ -171,7 +170,7 @@ func getDefaultConfig() Config {
 		Debug:              true,
 		IsKeepAliveEnabled: true,
 		KeepAliveRetry:     "10s",
-		UsersDatabasePath:  "talkeq_users.toml",
+		UsersDatabasePath:  "talkeq_users.txt",
 		GuildsDatabasePath: "talkeq_guilds.txt",
 	}
 	cfg.API.IsEnabled = true

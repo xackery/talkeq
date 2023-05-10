@@ -1,4 +1,4 @@
-VERSION ?= v1.3.8
+VERSION ?= v1.3.9
 NAME := talkeq
 
 # run a copy of talkeq
@@ -57,3 +57,26 @@ analyze:
 # CICD triggers this
 set-version-%:
 	@echo "VERSION=${VERSION}.$*" >> $$GITHUB_ENV
+
+# run pprof and dump 3 snapshots of heap
+profile-heap:
+	@echo "profile-heap: running pprof watcher for 2 minutes with snapshots 0 to 3..."
+	@-mkdir -p bin
+	curl http://localhost:8082/debug/pprof/heap > bin/heap.0.pprof
+	sleep 30
+	curl http://localhost:8082/debug/pprof/heap > bin/heap.1.pprof
+	sleep 30
+	curl http://localhost:8082/debug/pprof/heap > bin/heap.2.pprof
+	sleep 30
+	curl http://localhost:8082/debug/pprof/heap > bin/heap.3.pprof
+
+# peek at a heap
+profile-heap-%:
+	@echo "profile-heap-$*: use top20, svg, or list *word* for pprof commands, ctrl+c when done"
+	go tool pprof bin/heap.$*.pprof
+
+# run a trace on quail
+profile-trace:
+	@echo "profile-trace: getting trace data, this can show memory leaks and other issues..."
+	curl http://localhost:8082/debug/pprof/trace > bin/trace.out
+	go tool trace bin/trace.out

@@ -3,6 +3,8 @@ package userdb
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
@@ -32,6 +34,7 @@ func New(config *config.Config) error {
 	usersDatabasePath = config.UsersDatabasePath
 
 	tlog.Debugf("[userdb] initializing user db")
+	ext := filepath.Ext(usersDatabasePath)
 	_, err := os.Stat(usersDatabasePath)
 	if os.IsNotExist(err) {
 		tlog.Debugf("[userdb] not found, creating a new one")
@@ -40,10 +43,14 @@ func New(config *config.Config) error {
 			return fmt.Errorf("create user database: %w", err)
 		}
 		defer f.Close()
-		enc := toml.NewEncoder(f)
-		mu.Lock()
-		err = enc.Encode(users)
-		mu.Unlock()
+		if ext == ".toml" {
+			enc := toml.NewEncoder(f)
+			mu.Lock()
+			err = enc.Encode(users)
+			mu.Unlock()
+		} else {
+			_, err = f.WriteString("#userid:username\n87784167131066368:Xackery #aka Xackery#3764")
+		}
 
 		if err != nil {
 			return fmt.Errorf("create user database: %w", err)
@@ -114,9 +121,39 @@ func reload() error {
 		return fmt.Errorf("%s reload failed: %w", usersDatabasePath, err)
 	}
 
-	_, err = toml.DecodeFile(usersDatabasePath, &ue)
-	if err != nil {
-		return fmt.Errorf("decode: %w", err)
+	ext := filepath.Ext(usersDatabasePath)
+	if ext == ".toml" {
+		_, err = toml.DecodeFile(usersDatabasePath, &ue)
+		if err != nil {
+			return fmt.Errorf("decode toml: %w", err)
+		}
+	} else {
+		data, err := os.ReadFile(usersDatabasePath)
+		if err != nil {
+			return fmt.Errorf("readFile (txt): %w", err)
+		}
+		lines := strings.Split(string(data), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			parts := strings.Split(line, ":")
+			if len(parts) != 2 {
+				continue
+			}
+
+			discordID := strings.TrimSpace(parts[0])
+			characterName := strings.TrimSpace(parts[1])
+			if strings.Contains(characterName, "#") {
+				characterName = strings.TrimSpace(characterName[:strings.Index(characterName, "#")])
+			}
+
+			ue[discordID] = UserEntry{
+				DiscordID:     discordID,
+				CharacterName: characterName,
+			}
+		}
 	}
 
 	users = ue

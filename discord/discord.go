@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/pkg/errors"
 	"github.com/xackery/talkeq/config"
 	"github.com/xackery/talkeq/request"
 	"github.com/xackery/talkeq/tlog"
@@ -98,7 +97,7 @@ func (t *Discord) Connect(ctx context.Context) error {
 
 	t.conn, err = discordgo.New("Bot " + t.config.Token)
 	if err != nil {
-		return errors.Wrap(err, "new")
+		return fmt.Errorf("new: %w", err)
 	}
 
 	t.conn.StateEnabled = true
@@ -107,7 +106,7 @@ func (t *Discord) Connect(ctx context.Context) error {
 
 	err = t.conn.Open()
 	if err != nil {
-		return errors.Wrap(err, "open")
+		return fmt.Errorf("open: %w", err)
 	}
 
 	go t.loop(ctx)
@@ -131,7 +130,7 @@ func (t *Discord) Connect(ctx context.Context) error {
 
 	myUser, err := t.conn.User("@me")
 	if err != nil {
-		return errors.Wrap(err, "get my username")
+		return fmt.Errorf("get my username: %w", err)
 	}
 
 	t.id = myUser.ID
@@ -265,7 +264,7 @@ func (t *Discord) SetChannelName(channelID string, name string) error {
 	}
 
 	if _, err := t.conn.ChannelEdit(channelID, &discordgo.ChannelEdit{Name: name}); err != nil {
-		return errors.Wrap(err, "edit channel failed")
+		return fmt.Errorf("edit channel failed: %w", err)
 	}
 	tlog.Debugf("[discord] setting channel to %s", name)
 	return nil
