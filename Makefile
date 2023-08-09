@@ -1,4 +1,4 @@
-VERSION ?= v1.3.9
+VERSION ?= v1.3.10
 NAME := talkeq
 
 # run a copy of talkeq

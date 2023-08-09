@@ -38,6 +38,7 @@ func (t *Telnet) convertLinks(message string) string {
 		//}
 		itemName := message[submatches[4]:submatches[5]]
 
+		//fmt.Println("itemID: ", itemID, "itemName: ", itemName)
 		out = message[0:submatches[0]]
 		if itemID > 0 && len(t.config.ItemURL) > 0 {
 			out += fmt.Sprintf("%s%d (%s)", t.config.ItemURL, itemID, itemName)

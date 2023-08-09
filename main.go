@@ -50,6 +50,12 @@ func run(w *os.File) (err error) {
 		Version = "1.x.x EXPERIMENTAL"
 	}
 	tlog.Infof("starting talkeq %s", Version)
+	wd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("getwd: %w", err)
+	}
+
+	tlog.Infof("working directory is %s", wd)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
