@@ -115,6 +115,9 @@ func (t *Discord) Connect(ctx context.Context) error {
 	tlog.Infof("[discord] connected successfully")
 	var st *discordgo.Channel
 	for _, route := range t.config.Routes {
+		if !route.IsEnabled {
+			continue
+		}
 		st, err = t.conn.Channel(route.Trigger.ChannelID)
 		if err != nil {
 			tlog.Errorf("[discord] your bot appears to not be allowed to listen to route %s's channel %s. visit https://discordapp.com/oauth2/authorize?&client_id=%s&scope=bot&permissions=268504080 and authorize", route.Target, route.Trigger.ChannelID, t.config.ClientID)

@@ -88,7 +88,8 @@ func NewConfig(ctx context.Context) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("decode talkeq.conf: %w", err)
 	}
-	fw, err := os.Create("talkeq2.toml")
+
+	/*fw, err := os.Create("talkeq2.toml")
 	if err != nil {
 		return nil, fmt.Errorf("talkeq: %w", err)
 	}
@@ -98,7 +99,7 @@ func NewConfig(ctx context.Context) (*Config, error) {
 	err = enc.Encode(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("encode: %w", err)
-	}
+	}*/
 
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if cfg.Debug {
