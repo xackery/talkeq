@@ -23,6 +23,9 @@ func (r *Route) MessagePatternTemplate() *template.Template {
 
 // LoadMessagePattern is called after config is loaded, and verified patterns are valid
 func (r *Route) LoadMessagePattern() error {
+	if !r.IsEnabled {
+		return nil
+	}
 	var err error
 	r.messagePatternTemplate, err = template.New("root").Parse(r.MessagePattern)
 	if err != nil {
