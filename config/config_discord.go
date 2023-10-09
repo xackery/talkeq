@@ -25,6 +25,7 @@ type DiscordRoute struct {
 	GuildID                string         `toml:"guild_id,omitempty" desc:"Optional, and likely not needed to be set since guilddb file is better, destination guild ID to relay the discord message to"`
 	MessagePattern         string         `toml:"message_pattern" desc:"Destination message in. E.g. {{.Name}} says {{.ChannelName}}, '{{.Message}}"`
 	messagePatternTemplate *template.Template
+	IsAnyoneAllowed        bool `toml:"is_anyone_allowed" desc:"Can anyone use this route? E.g., instead of IGN or a users.txt, anyone given access to provided channel will be able to relay in game using their discord name."`
 }
 
 // DiscordTrigger is custom discord triggering

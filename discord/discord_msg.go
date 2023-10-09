@@ -80,8 +80,29 @@ func (t *Discord) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate
 	}
 
 	if len(ign) == 0 {
-		tlog.Warn("[discord] ign not found, discarding")
-		return
+		for _, route := range t.config.Routes {
+			if !route.IsEnabled {
+				continue
+			}
+			if route.Trigger.ChannelID != m.ChannelID {
+				continue
+			}
+			if !route.IsAnyoneAllowed {
+				continue
+			}
+			member, err := s.GuildMember(m.GuildID, m.Author.ID)
+			if err != nil {
+				tlog.Warnf("[discord] guildMember failed for server_id %s, author_id %s: %s", m.GuildID, m.Author, err)
+				continue
+			}
+
+			ign = sanitize(member.Nick)
+			tlog.Debugf("[discord] ign not found, but anyone is allowed, using %s", ign)
+		}
+		if len(ign) == 0 {
+			tlog.Warn("[discord] ign not found, discarding")
+			return
+		}
 	}
 	routes := 0
 	for routeIndex, route := range t.config.Routes {
