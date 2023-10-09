@@ -153,10 +153,10 @@ func (t *PEQEditorSQL) loop(ctx context.Context) {
 
 			name := ""
 			message := ""
-			if route.Trigger.MessageIndex >= len(matches[0]) {
+			if route.Trigger.MessageIndex > 0 && route.Trigger.MessageIndex <= len(matches[0]) {
 				message = matches[0][route.Trigger.MessageIndex]
 			}
-			if route.Trigger.NameIndex >= len(matches[0]) {
+			if route.Trigger.NameIndex > 0 && route.Trigger.NameIndex <= len(matches[0]) {
 				name = matches[0][route.Trigger.NameIndex]
 			}
 
