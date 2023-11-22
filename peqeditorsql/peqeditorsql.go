@@ -7,7 +7,6 @@ import (
 	"os"
 	"regexp"
 	"sync"
-	"text/template"
 	"time"
 
 	"github.com/xackery/talkeq/request"
@@ -91,52 +90,65 @@ func (t *PEQEditorSQL) Connect(ctx context.Context) error {
 }
 
 func (t *PEQEditorSQL) loop(ctx context.Context) {
-	tmpl := template.New("filePattern")
-	tmpl.Parse(t.config.FilePattern)
-
-	buf := new(bytes.Buffer)
-	tmpl.Execute(buf, struct {
-		Year  int
-		Month string
-	}{
-		time.Now().Year(),
-		time.Now().Format("01"),
-	})
-
-	finalPath := fmt.Sprintf("%s/%s", t.config.Path, buf.String())
-	tlog.Debugf("[peqeditorsql] tailing file %s", finalPath)
-
-	fi, err := os.Stat(finalPath)
-	if err != nil {
-		tlog.Warnf("[peqeditorsql] stat polling failed: %s", err)
-		t.Disconnect(ctx)
-		return
-	}
-	cfg := tail.Config{
-		Follow:    true,
-		MustExist: true,
-		Poll:      true,
-		Location: &tail.SeekInfo{
-			Offset: fi.Size(),
+	msgChan := make(chan string, 100)
+	tail1, err := newTailWatch(t.ctx, &tailReq{
+		id:          1,
+		filePattern: t.config.FilePattern,
+		basePath:    t.config.Path,
+		cfg: tail.Config{
+			Follow:    true,
+			MustExist: false,
+			Poll:      true,
+			Logger:    tail.DiscardingLogger,
 		},
-		Logger: tail.DiscardingLogger,
-	}
-
-	tailer, err := tail.TailFile(finalPath, cfg)
+		isNextMonth: false,
+	}, msgChan)
 	if err != nil {
-		tlog.Warnf("[peqeditorsql] tail attempt failed: %s", err)
+		tlog.Warnf("[peqeditorsql] tail1 creation failed: %s", err)
 		t.Disconnect(ctx)
 		return
 	}
 
-	for line := range tailer.Lines {
-		select {
-		case <-t.ctx.Done():
-			tlog.Debugf("[peqeditorsql] exiting loop")
-			return
-		default:
-		}
+	err = tail1.restart(msgChan)
+	if err != nil {
+		tlog.Warnf("[peqeditorsql] tail1 start failed: %s", err)
+		t.Disconnect(ctx)
+		return
+	}
 
+	tail2, err := newTailWatch(t.ctx, &tailReq{
+		id:          2,
+		filePattern: t.config.FilePattern,
+		basePath:    t.config.Path,
+		cfg: tail.Config{
+			Follow:    true,
+			MustExist: false,
+			Poll:      true,
+			Logger:    tail.DiscardingLogger,
+		},
+		isNextMonth: true,
+	}, msgChan)
+	if err != nil {
+		tlog.Warnf("[peqeditorsql] tail2 creation failed: %s", err)
+		t.Disconnect(ctx)
+		return
+	}
+
+	err = tail2.restart(msgChan)
+	if err != nil {
+		tlog.Warnf("[peqeditorsql] tail2 start failed: %s", err)
+		t.Disconnect(ctx)
+		return
+	}
+
+	ticker := time.NewTicker(12 * time.Hour)
+	select {
+	case <-t.ctx.Done():
+		return
+	case <-ticker.C:
+		tail1.restart(msgChan)
+		tail2.restart(msgChan)
+	case line := <-msgChan:
 		for routeIndex, route := range t.config.Routes {
 			if !route.IsEnabled {
 				continue
@@ -146,7 +158,7 @@ func (t *PEQEditorSQL) loop(ctx context.Context) {
 				tlog.Debugf("[peqeditorsql] compile route %d skipped: %s", routeIndex, err)
 				continue
 			}
-			matches := pattern.FindAllStringSubmatch(line.Text, -1)
+			matches := pattern.FindAllStringSubmatch(line, -1)
 			if len(matches) == 0 {
 				continue
 			}
