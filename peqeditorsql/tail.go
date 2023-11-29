@@ -30,10 +30,13 @@ type tailReq struct {
 }
 
 func newTailWatch(rootCtx context.Context, req *tailReq, msgChan chan string) (*tailWatch, error) {
+
 	e := &tailWatch{
 		rootCtx: rootCtx,
 		req:     req,
 	}
+	e.ctx, e.cancel = context.WithCancel(context.Background())
+
 	err := e.restart(msgChan)
 	if err != nil {
 		return nil, fmt.Errorf("restart: %w", err)
