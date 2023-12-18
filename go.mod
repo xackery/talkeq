@@ -12,7 +12,7 @@ require (
 	github.com/rs/zerolog v1.28.0
 	github.com/ziutek/telnet v0.0.0-20180329124119-c3b780dc415b
 	go.uber.org/zap v1.23.0
-	golang.org/x/text v0.3.8
+	golang.org/x/text v0.14.0
 )
 
 require (
@@ -21,8 +21,8 @@ require (
 	github.com/mattn/go-isatty v0.0.16 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
-	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90 // indirect
-	golang.org/x/sys v0.0.0-20220908164124-27713097b956 // indirect
+	golang.org/x/crypto v0.17.0 // indirect
+	golang.org/x/sys v0.15.0 // indirect
 	gopkg.in/fsnotify.v1 v1.4.7 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 )
