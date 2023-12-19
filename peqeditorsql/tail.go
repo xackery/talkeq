@@ -47,7 +47,9 @@ func newTailWatch(rootCtx context.Context, req *tailReq, msgChan chan string) (*
 
 func (e *tailWatch) restart(msgChan chan string) error {
 	var err error
-	e.cancel()
+	if e.cancel != nil {
+		e.cancel()
+	}
 	time.Sleep(1 * time.Second)
 	e.ctx, e.cancel = context.WithCancel(context.Background())
 	buf := new(bytes.Buffer)
