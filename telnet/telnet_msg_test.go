@@ -30,8 +30,12 @@ func TestConvertLinks(t *testing.T) {
 	messages := []test{
 		{
 			name:   "mask of tinkering x64",
-			input:  "\x1200000046F00000000000000000000000000000000000000000000000000000000000000014D2720CMask of Tinkering\x12",
-			output: "http://test.com?itemid=1135 (Mask of Tinkering)",
+			input:  "\x120000027180000000000000000000000000000000000000000000000000000000000003271C223Gold Ring (Latent)\x12",
+			output: "http://test.com?itemid=10008 (Gold Ring (Latent))",
+		}, {
+			name:   "mask of tinkering x32",
+			input:  "\r> \b\bShin says ooc, '\x1207A50C000000000000000000000000000000000000000000CC2F1766Infused 2 Handed Damage\x12'\n",
+			output: "> \u0008\u0008Shin says ooc, 'http://test.com?itemid=501004 (Infused 2 Handed Damage)'",
 		}, {
 			name:   "no url test",
 			input:  `no url test`,

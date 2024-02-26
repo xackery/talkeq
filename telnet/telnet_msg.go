@@ -15,11 +15,11 @@ import (
 
 var (
 	// legacy item links in titanium is 6, then 39 bytes
-	itemLink39 = regexp.MustCompile(`\x12([0-9A-Z]{6})[0-9A-Z]{39}([\+0-9A-Za-z-'` + "`" + `:.,!?* ]+)\x12`)
+	itemLink39 = regexp.MustCompile(`\x12([0-9A-Z]{6})[0-9A-Z]{39}([\+()0-9A-Za-z-'` + "`" + `:.,!?* ]+)\x12`)
 	// rof2+ item links are 6, then 50 bytes
-	itemLink50 = regexp.MustCompile(`\x12([0-9A-Z]{6})[0-9A-Z]{50}([\+0-9A-Za-z-'` + "`" + `:.,!?* ]+)\x12`)
+	itemLink50 = regexp.MustCompile(`\x12([0-9A-Z]{6})[0-9A-Z]{50}([\+()0-9A-Za-z-'` + "`" + `:.,!?* ]+)\x12`)
 	// custom secrets itemlinks (64bit) are 9, then 71 bytes
-	itemLink71 = regexp.MustCompile(`\x12([0-9A-Z]{9})[0-9A-Z]{71}([\+0-9A-Za-z-'` + "`" + `:.,!?* ]+)\x12`)
+	itemLink71 = regexp.MustCompile(`\x12([0-9A-Z]{9})[0-9A-Z]{68}([\+()0-9A-Za-z-'` + "`" + `:.,!?* ]+)\x12`)
 )
 
 func (t *Telnet) convertLinks(message string) string {
