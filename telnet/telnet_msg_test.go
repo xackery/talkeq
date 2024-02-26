@@ -20,6 +20,7 @@ func TestConvertLinks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new client: %s", err)
 	}
+	client.config.IsLegacyLinks = true
 
 	type test struct {
 		name   string
