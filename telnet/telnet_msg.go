@@ -51,10 +51,14 @@ func (t *Telnet) convertLinks(message string) string {
 
 		//fmt.Println("itemID: ", itemID, "itemName: ", itemName)
 		out = message[0:submatches[0]]
-		if itemID > 0 && len(t.config.ItemURL) > 0 {
-			out += fmt.Sprintf("%s%d (%s)", t.config.ItemURL, itemID, itemName)
+		if t.config.IsLegacyLinks {
+			if itemID > 0 && len(t.config.ItemURL) > 0 {
+				out += fmt.Sprintf("%s%d (%s)", t.config.ItemURL, itemID, itemName)
+			} else {
+				out += fmt.Sprintf("*%s* ", itemName)
+			}
 		} else {
-			out += fmt.Sprintf("*%s* ", itemName)
+			out += fmt.Sprintf("[%s](%s%d)", itemName, t.config.ItemURL, itemID)
 		}
 		out += message[submatches[1]:]
 		out = strings.TrimSpace(out)

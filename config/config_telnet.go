@@ -11,6 +11,7 @@ type Telnet struct {
 	IsLegacy                bool    `toml:"legacy" desc:"EQEMU servers that run 0.8.0 versions need this set to true for item link support, everyone running any newer versions can leave it default (false)"`
 	LinkChunk1Size          int     `toml:"link_chunk1_size" desc:"Size of item links. Can leave at 0, will dynamically detect, Secrets custom is 9. but RoF2 is 6. Titanium is 6. Left for super custom servers."`
 	LinkChunk2Size          int     `toml:"link_chunk2_size" desc:"Size of item links. Can leave at 0, will dynamically detect, Secrets custom is 68. but RoF2 is 50. Titanium is 39. Left for super custom servers."`
+	IsLegacyLinks           bool    `toml:"legacy_links" desc:"If true, will not use masked links and revert to classic style where e.g. http://foo.com?item=123 (Rawr)"`
 	Host                    string  `toml:"host" desc:"Address where telnet is found. By default, newer telnet clients will auto success on 127.0.0.1:9000"`
 	Username                string  `toml:"username" desc:"Optional. Username to connect to telnet to. (By default, newer telnet clients will auto succeed if localhost)"`
 	Password                string  `toml:"password" desc:"Optional. Password to connect to telnet to. (By default, newer telnet clients will auto succeed if localhost)"`
