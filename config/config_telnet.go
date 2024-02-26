@@ -12,6 +12,7 @@ type Telnet struct {
 	LinkChunk1Size          int     `toml:"link_chunk1_size" desc:"Size of item links. Can leave at 0, will dynamically detect, Secrets custom is 9. but RoF2 is 6. Titanium is 6. Left for super custom servers."`
 	LinkChunk2Size          int     `toml:"link_chunk2_size" desc:"Size of item links. Can leave at 0, will dynamically detect, Secrets custom is 68. but RoF2 is 50. Titanium is 39. Left for super custom servers."`
 	IsLegacyLinks           bool    `toml:"legacy_links" desc:"If true, will not use masked links and revert to classic style where e.g. http://foo.com?item=123 (Rawr)"`
+	IsLinksEmbedded         bool    `toml:"links_embedded" desc:"If true, a preview of item links will appear below messages. Default is false."`
 	Host                    string  `toml:"host" desc:"Address where telnet is found. By default, newer telnet clients will auto success on 127.0.0.1:9000"`
 	Username                string  `toml:"username" desc:"Optional. Username to connect to telnet to. (By default, newer telnet clients will auto succeed if localhost)"`
 	Password                string  `toml:"password" desc:"Optional. Password to connect to telnet to. (By default, newer telnet clients will auto succeed if localhost)"`
