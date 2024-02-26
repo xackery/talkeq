@@ -21,6 +21,7 @@ func TestConvertLinks(t *testing.T) {
 		t.Fatalf("new client: %s", err)
 	}
 	client.config.IsLegacyLinks = true
+	client.config.IsLinksEmbedded = true
 
 	type test struct {
 		name   string
