@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -34,6 +35,7 @@ type Telnet struct {
 	isPlayerDump   bool
 	lastPlayerDump time.Time
 	characters     map[string]*characterdb.Character
+	itemLinkCustom *regexp.Regexp
 }
 
 // New creates a new telnet connect
@@ -60,6 +62,14 @@ func New(ctx context.Context, config config.Telnet) (*Telnet, error) {
 
 	if config.Host == "" {
 		config.Host = "127.0.0.1:23"
+	}
+	if config.LinkChunk1Size > 0 && config.LinkChunk2Size > 0 {
+		var err error
+		t.itemLinkCustom, err = regexp.Compile(fmt.Sprintf(`\x12([0-9A-Z]{%d})[0-9A-Z]{%d}([\+0-9A-Za-z-'`+"`"+`:.,!?* ]+)\x12`, config.LinkChunk1Size, config.LinkChunk2Size))
+		if err != nil {
+			return nil, fmt.Errorf("item link custom: %w", err)
+		}
+
 	}
 
 	return t, nil

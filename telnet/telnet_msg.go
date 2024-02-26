@@ -14,16 +14,27 @@ import (
 )
 
 var (
-	oldItemLink = regexp.MustCompile(`\x12([0-9A-Z]{6})[0-9A-Z]{39}([\+0-9A-Za-z-'` + "`" + `:.,!?* ]+)\x12`)
-	newItemLink = regexp.MustCompile(`\x12([0-9A-Z]{6})[0-9A-Z]{50}([\+0-9A-Za-z-'` + "`" + `:.,!?* ]+)\x12`)
+	// legacy item links in titanium is 6, then 39 bytes
+	itemLink39 = regexp.MustCompile(`\x12([0-9A-Z]{6})[0-9A-Z]{39}([\+0-9A-Za-z-'` + "`" + `:.,!?* ]+)\x12`)
+	// rof2+ item links are 6, then 50 bytes
+	itemLink50 = regexp.MustCompile(`\x12([0-9A-Z]{6})[0-9A-Z]{50}([\+0-9A-Za-z-'` + "`" + `:.,!?* ]+)\x12`)
+	// custom secrets itemlinks (64bit) are 9, then 71 bytes
+	itemLink71 = regexp.MustCompile(`\x12([0-9A-Z]{9})[0-9A-Z]{71}([\+0-9A-Za-z-'` + "`" + `:.,!?* ]+)\x12`)
 )
 
 func (t *Telnet) convertLinks(message string) string {
 
-	matches := newItemLink.FindAllStringSubmatchIndex(message, -1)
+	matches := itemLink71.FindAllStringSubmatchIndex(message, -1)
 	if len(matches) == 0 {
-		matches = oldItemLink.FindAllStringSubmatchIndex(message, -1)
+		matches = itemLink50.FindAllStringSubmatchIndex(message, -1)
+		if len(matches) == 0 {
+			matches = itemLink39.FindAllStringSubmatchIndex(message, -1)
+		}
 	}
+	if t.itemLinkCustom != nil && len(matches) == 0 {
+		matches = t.itemLinkCustom.FindAllStringSubmatchIndex(message, -1)
+	}
+
 	out := message
 	for _, submatches := range matches {
 		if len(submatches) < 6 {
@@ -31,7 +42,7 @@ func (t *Telnet) convertLinks(message string) string {
 		}
 		itemLink := message[submatches[2]:submatches[3]]
 
-		itemID, _ := strconv.ParseInt(itemLink, 16, 32)
+		itemID, _ := strconv.ParseInt(itemLink, 16, 64)
 		//TODO: smarter debugging
 		//if err != nil {
 
