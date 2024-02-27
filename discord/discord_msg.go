@@ -79,7 +79,9 @@ func (t *Discord) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate
 		}
 	}
 
+	isUnregisteredIGN := false
 	if len(ign) == 0 {
+		isUnregisteredIGN = true
 		for _, route := range t.config.Routes {
 			if !route.IsEnabled {
 				continue
@@ -96,7 +98,12 @@ func (t *Discord) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate
 				continue
 			}
 
-			ign = sanitize(member.Nick)
+			if len(ign) == 0 {
+				ign = sanitize(member.Nick)
+				if len(ign) == 0 {
+					ign = sanitize(member.User.Username)
+				}
+			}
 			tlog.Debugf("[discord] ign not found, but anyone is allowed, using %s", ign)
 		}
 		if len(ign) == 0 {
@@ -110,6 +117,9 @@ func (t *Discord) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate
 			continue
 		}
 		if route.Trigger.ChannelID != m.ChannelID {
+			continue
+		}
+		if isUnregisteredIGN && !route.IsAnyoneAllowed {
 			continue
 		}
 
