@@ -22,15 +22,13 @@ type tailWatch struct {
 }
 
 type tailReq struct {
-	id          int
+	id          string
 	filePattern string
 	basePath    string
 	cfg         tail.Config
-	isNextMonth bool
 }
 
 func newTailWatch(rootCtx context.Context, req *tailReq, msgChan chan string) (*tailWatch, error) {
-
 	e := &tailWatch{
 		rootCtx: rootCtx,
 		req:     req,
@@ -50,14 +48,13 @@ func (e *tailWatch) restart(msgChan chan string) error {
 	if e.cancel != nil {
 		e.cancel()
 	}
-	time.Sleep(1 * time.Second)
 	e.ctx, e.cancel = context.WithCancel(context.Background())
 	buf := new(bytes.Buffer)
 	tmpl := template.New("filePattern")
 	tmpl.Parse(e.req.filePattern)
 
 	month := time.Now().Format("01")
-	if e.req.isNextMonth {
+	if e.req.id == "Next" {
 		month = time.Now().AddDate(0, 1, 0).Format("01")
 	}
 
@@ -79,26 +76,29 @@ func (e *tailWatch) restart(msgChan chan string) error {
 	if err != nil {
 		return fmt.Errorf("tail: %w", err)
 	}
+	tlog.Infof("[peqeditorsql] tail%s watching %s", e.req.id, finalPath)
 	go e.loop(msgChan)
 	return nil
 }
 
 func (e *tailWatch) loop(msgChan chan string) {
 	defer func() {
-		tlog.Debugf("[peqeditorsql] tail%d loop exiting for %s", e.req.id, e.tailer.Filename)
+		tlog.Debugf("[peqeditorsql] tail%s loop exiting for %s", e.req.id, e.tailer.Filename)
 		e.tailer.Cleanup()
 	}()
 
-	select {
-	case <-e.rootCtx.Done():
-		return
-	case <-e.ctx.Done():
-		return
-	case line := <-e.tailer.Lines:
-		if line.Err != nil {
-			tlog.Warnf("[peqeditorsql] tail%d error: %s", e.req.id, line.Err)
+	for {
+		select {
+		case <-e.rootCtx.Done():
 			return
+		case <-e.ctx.Done():
+			return
+		case line := <-e.tailer.Lines:
+			if line.Err != nil {
+				tlog.Warnf("[peqeditorsql] tail%s error: %s", e.req.id, line.Err)
+				return
+			}
+			msgChan <- line.Text
 		}
-		msgChan <- line.Text
 	}
 }

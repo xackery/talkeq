@@ -1,0 +1,6 @@
+{
+    "go.testEnvVars": {
+        "SINGLE_TEST": "1"
+    },
+    "files.trimTrailingWhitespace": true,
+}

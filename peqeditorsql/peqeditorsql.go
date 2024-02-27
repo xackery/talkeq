@@ -78,8 +78,6 @@ func (t *PEQEditorSQL) Connect(ctx context.Context) error {
 		return nil
 	}
 
-	tlog.Infof("[peqeditorsql] tailing %s...", t.config.Path)
-
 	t.Disconnect(ctx)
 
 	t.ctx, t.cancel = context.WithCancel(ctx)
@@ -90,9 +88,12 @@ func (t *PEQEditorSQL) Connect(ctx context.Context) error {
 }
 
 func (t *PEQEditorSQL) loop(ctx context.Context) {
-	msgChan := make(chan string, 100)
-	tail1, err := newTailWatch(t.ctx, &tailReq{
-		id:          1,
+	msgCurrentChan := make(chan string, 100)
+	tailCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	tailCurrent, err := newTailWatch(tailCtx, &tailReq{
+		id:          "Current",
 		filePattern: t.config.FilePattern,
 		basePath:    t.config.Path,
 		cfg: tail.Config{
@@ -101,23 +102,16 @@ func (t *PEQEditorSQL) loop(ctx context.Context) {
 			Poll:      true,
 			Logger:    tail.DiscardingLogger,
 		},
-		isNextMonth: false,
-	}, msgChan)
+	}, msgCurrentChan)
 	if err != nil {
-		tlog.Warnf("[peqeditorsql] tail1 creation failed: %s", err)
+		tlog.Warnf("[peqeditorsql] tailCurrent creation failed: %s", err)
 		t.Disconnect(ctx)
 		return
 	}
 
-	err = tail1.restart(msgChan)
-	if err != nil {
-		tlog.Warnf("[peqeditorsql] tail1 start failed: %s", err)
-		t.Disconnect(ctx)
-		return
-	}
-
-	tail2, err := newTailWatch(t.ctx, &tailReq{
-		id:          2,
+	msgNextChan := make(chan string, 100)
+	tailNextMonth, err := newTailWatch(tailCtx, &tailReq{
+		id:          "Next",
 		filePattern: t.config.FilePattern,
 		basePath:    t.config.Path,
 		cfg: tail.Config{
@@ -126,82 +120,32 @@ func (t *PEQEditorSQL) loop(ctx context.Context) {
 			Poll:      true,
 			Logger:    tail.DiscardingLogger,
 		},
-		isNextMonth: true,
-	}, msgChan)
+	}, msgNextChan)
 	if err != nil {
-		tlog.Warnf("[peqeditorsql] tail2 creation failed: %s", err)
+		tlog.Warnf("[peqeditorsql] tailNext creation failed: %s", err)
 		t.Disconnect(ctx)
 		return
 	}
+	for {
+		//ticker := time.NewTicker(12 * time.Hour)
+		select {
+		case <-t.ctx.Done():
+			return
+		// case <-ticker.C:
+		// 	tailCurrent.restart(msgCurrentChan)
+		// 	tailNextMonth.restart(msgCurrentChan)
+		case line := <-msgCurrentChan:
+			t.handleMessage(ctx, line)
+		case line := <-msgNextChan:
+			t.handleMessage(ctx, line)
+			tlog.Infof("[peqeditorsql] new month file activity detected, rotating log parsing")
+			tailCurrent.cancel()
+			tailNextMonth.cancel()
+			tailCtx.Done()
 
-	err = tail2.restart(msgChan)
-	if err != nil {
-		tlog.Warnf("[peqeditorsql] tail2 start failed: %s", err)
-		t.Disconnect(ctx)
-		return
-	}
-
-	ticker := time.NewTicker(12 * time.Hour)
-	select {
-	case <-t.ctx.Done():
-		return
-	case <-ticker.C:
-		tail1.restart(msgChan)
-		tail2.restart(msgChan)
-	case line := <-msgChan:
-		for routeIndex, route := range t.config.Routes {
-			if !route.IsEnabled {
-				continue
-			}
-			pattern, err := regexp.Compile(route.Trigger.Regex)
-			if err != nil {
-				tlog.Debugf("[peqeditorsql] compile route %d skipped: %s", routeIndex, err)
-				continue
-			}
-			matches := pattern.FindAllStringSubmatch(line, -1)
-			if len(matches) == 0 {
-				continue
-			}
-
-			name := ""
-			message := ""
-			if route.Trigger.MessageIndex > 0 && route.Trigger.MessageIndex <= len(matches[0]) {
-				message = matches[0][route.Trigger.MessageIndex]
-			}
-			if route.Trigger.NameIndex > 0 && route.Trigger.NameIndex <= len(matches[0]) {
-				name = matches[0][route.Trigger.NameIndex]
-			}
-
-			buf := new(bytes.Buffer)
-			if err := route.MessagePatternTemplate().Execute(buf, struct {
-				Name    string
-				Message string
-			}{
-				name,
-				message,
-			}); err != nil {
-				tlog.Warnf("[peqeditorsql] execute route %d skipped: %s", routeIndex, err)
-				continue
-			}
-			switch route.Target {
-			case "discord":
-				req := request.DiscordSend{
-					Ctx:       ctx,
-					ChannelID: route.ChannelID,
-					Message:   buf.String(),
-				}
-				for i, s := range t.subscribers {
-					err = s(req)
-					if err != nil {
-						tlog.Warnf("[peqeditorsql->discord subscriber %d] channel %s message %s failed: %s", i, route.ChannelID, req.Message)
-						continue
-					}
-					tlog.Infof("[peqeditorsql->discord subscribe %d] channel %s message: %s", i, route.ChannelID, req.Message)
-				}
-			default:
-				tlog.Warnf("[peqeditorsql] unsupported target type: %s", route.Target)
-				continue
-			}
+			time.Sleep(500 * time.Millisecond)
+			go t.loop(ctx)
+			return
 		}
 	}
 }
@@ -214,7 +158,7 @@ func (t *PEQEditorSQL) Disconnect(ctx context.Context) error {
 		return nil
 	}
 	if !t.isConnected {
-		tlog.Debugf("[peqeditorsql] already disconnected, skipping disconnect")
+		//tlog.Debugf("[peqeditorsql] already disconnected, skipping disconnect")
 		return nil
 	}
 	t.cancel()
@@ -233,4 +177,66 @@ func (t *PEQEditorSQL) Subscribe(ctx context.Context, onMessage func(interface{}
 	defer t.mutex.Unlock()
 	t.subscribers = append(t.subscribers, onMessage)
 	return nil
+}
+
+func (t *PEQEditorSQL) handleMessage(ctx context.Context, line string) {
+	isSent := false
+	for routeIndex, route := range t.config.Routes {
+		if !route.IsEnabled {
+			continue
+		}
+		pattern, err := regexp.Compile(route.Trigger.Regex)
+		if err != nil {
+			tlog.Debugf("[peqeditorsql] compile route %d skipped: %s", routeIndex, err)
+			continue
+		}
+		matches := pattern.FindAllStringSubmatch(line, -1)
+		if len(matches) == 0 {
+			continue
+		}
+
+		name := ""
+		message := ""
+		if route.Trigger.MessageIndex > 0 && route.Trigger.MessageIndex <= len(matches[0]) {
+			message = matches[0][route.Trigger.MessageIndex]
+		}
+		if route.Trigger.NameIndex > 0 && route.Trigger.NameIndex <= len(matches[0]) {
+			name = matches[0][route.Trigger.NameIndex]
+		}
+
+		buf := new(bytes.Buffer)
+		if err := route.MessagePatternTemplate().Execute(buf, struct {
+			Name    string
+			Message string
+		}{
+			name,
+			message,
+		}); err != nil {
+			tlog.Warnf("[peqeditorsql] execute route %d skipped: %s", routeIndex, err)
+			continue
+		}
+		switch route.Target {
+		case "discord":
+			req := request.DiscordSend{
+				Ctx:       ctx,
+				ChannelID: route.ChannelID,
+				Message:   buf.String(),
+			}
+			for i, s := range t.subscribers {
+				err = s(req)
+				if err != nil {
+					tlog.Warnf("[peqeditorsql->discord subscriber %d] channel %s message %s failed: %s", i, route.ChannelID, req.Message)
+					continue
+				}
+				tlog.Infof("[peqeditorsql->discord subscribe %d] channel %s message: %s", i, route.ChannelID, req.Message)
+			}
+			isSent = true
+		default:
+			tlog.Warnf("[peqeditorsql] unsupported target type: %s", route.Target)
+			continue
+		}
+	}
+	if !isSent {
+		tlog.Debugf("[peqeditorsql] message '%s' was not sent (no route enabled)", line)
+	}
 }
