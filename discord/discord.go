@@ -257,6 +257,7 @@ func sanitize(data string) string {
 	data = strings.Replace(data, `%`, "&PCT;", -1)
 	re := regexp.MustCompile("[^\x00-\x7F]+")
 	data = re.ReplaceAllString(data, "")
+	data = strings.ReplaceAll(data, "^", "")
 	return data
 }
 
