@@ -18,6 +18,7 @@ type Telnet struct {
 	Password                string  `toml:"password" desc:"Optional. Password to connect to telnet to. (By default, newer telnet clients will auto succeed if localhost)"`
 	Routes                  []Route `toml:"routes" desc:"Routes from telnet to other services"`
 	ItemURL                 string  `toml:"item_url" desc:"Optional. Converts item URLs to provided field. defaults to allakhazam. To disable, change to \n# default: \"http://everquest.allakhazam.com/db/item.html?item=\""`
+	ProfileURL              string  `toml:"profile_url" desc:"Optional. Converts a character's name to a profile URL (e.g. Magelo link). Example: https://retributioneq.com/magelo/index.php?page=character&char= ."`
 	IsServerAnnounceEnabled bool    `toml:"announce_server_status" desc:"Optional. Annunce when a server changes state to OOC channel (Server UP/Down)"`
 	IsOOCAuctionEnabled     bool    `toml:"convert_ooc_auction" desc:"if a OOC message uses prefix WTS or WTB, convert them into auction"`
 }

@@ -127,6 +127,9 @@ func (t *Telnet) parseMessage(msg string) bool {
 		}
 
 		buf := new(bytes.Buffer)
+		if t.config.ProfileURL != "" {
+			name = fmt.Sprintf("[%s](<%s%s>)", name, t.config.ProfileURL, name)
+		}
 		if err := route.MessagePatternTemplate().Execute(buf, struct {
 			Name    string
 			Message string
