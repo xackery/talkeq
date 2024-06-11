@@ -47,7 +47,9 @@ TalkEQ bridges links between everquest and other services. Extends [DiscordEQ](h
 * If you write to this file, talkeq will hot reload the contents and update it's lookup table in memory for mapping users from discord to telnet (eq)
 * You can write a website to edit this file, or by hand, to update talkeq and sync your player IGN tags
 
+### Troubleshooting
 
+- **I can talk from in game to discord, but messages in discord to in game fail with "message too small, ignoring, original message:"**: Double check the bot section, and toggle the Message Content Intent option. If this is disabled, the bot just sees empty content messages and fails.
 
 /etc/init.d/talkeq
 change APPDIR/APPBIN, user, and group to your set options
