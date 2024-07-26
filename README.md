@@ -17,7 +17,6 @@ TalkEQ bridges links between everquest and other services. Extends [DiscordEQ](h
 * Start the talkeq executable once. This generates a talkeq.conf file
 * Copy the Application ID into your talkeq.conf's discord client_id section
 * On the left pane, click Bot
-* Press Add Bot, Yes, do it!
 * Click the Reset Token button, Yes, do it!
 * Press the copy button in the Token section
 * Uncheck the Public Bot option
