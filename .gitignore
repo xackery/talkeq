@@ -41,6 +41,7 @@ _testmain.go
 /*.toml
 
 talkeq_guilds.txt
+talkeq_users.txt
 talkeq.log
 
 .DS_Store
