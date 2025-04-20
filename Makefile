@@ -50,6 +50,10 @@ build-windows:
 	GOOS=windows GOARCH=amd64 go build -buildmode=pie -ldflags="-X main.Version=${VERSION} -s -w" -o bin/${NAME}-windows.exe main.go
 	@#GOOS=windows GOARCH=386 go build -buildmode=pie -ldflags="-X main.Version=${VERSION} -s -w" -o bin/${NAME}-windows-x86.exe main.go
 
+build-linux-arm:
+	@echo "Building Linux-arm ${VERSION}"
+	@GOOS=linux GOARCH=arm go build -ldflags="-X main.Version=${VERSION} -w" -o bin/${NAME}-linux-arm main.go
+
 # analyze the binary using binskim
 analyze:
 	binskim analyze bin/${NAME}-linux
