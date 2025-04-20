@@ -18,6 +18,10 @@ type Route struct {
 
 // MessagePatternTemplate returns a template for provided route
 func (r *Route) MessagePatternTemplate() *template.Template {
+	if r.messagePatternTemplate == nil {
+		// fallback logic
+		r.messagePatternTemplate, _ = template.New("root").Parse(r.MessagePattern)
+	}
 	return r.messagePatternTemplate
 }
 
